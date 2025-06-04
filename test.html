@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!--1-->
+    <!--2-->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Keyboard - User-Triggered Suggestion Scan V16 (Click Mail Fix)</title>
+    <title>Keyboard - User-Triggered Suggestion Scan V17 (Dialog Fix)</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
@@ -373,8 +373,8 @@
         const PUNC_KEY_CHAR = "[,.]";      
 
         // Email Setup Keys
-        const SENDER_EMAIL_ADDRESS = "arnavrai03@gmail.com"; // <<< HARDCODE YOUR SENDER EMAIL HERE
-        const EMAIL_NEXT_FIELD_KEY = "Next"; // Only one "Next" needed now
+        const SENDER_EMAIL_ADDRESS = "arnavrai03@gmail.com"; // <<< HARDCODE YOUR SENDER EMAIL HERE (Line 208 approx)
+        const EMAIL_NEXT_FIELD_KEY = "Next"; 
         const EMAIL_SEND_KEY = "Send Mail";
         const EMAIL_CANCEL_SETUP_KEY = "Cancel Mail";
         const EMAIL_DOMAIN_SUFFIX = "@gmail.com";
@@ -456,8 +456,7 @@
 
         // Email Setup State
         let isSettingUpEmail = false;
-        let emailSetupPhase = ""; // "enter_receiver", "confirm_send" (sender is hardcoded)
-        // senderEmailUsername is no longer needed as SENDER_EMAIL_ADDRESS is used directly
+        let emailSetupPhase = ""; 
         let receiverEmailUsername = ""; 
         let originalTypedTextBeforeEmail = ""; 
 
@@ -936,14 +935,12 @@
             if (fromEmailProcess) { 
                  typedTextArea.textContent = originalTypedTextBeforeEmail;
                  typedText = originalTypedTextBeforeEmail; 
-            } else if (clearMainTypedTextAfterSend) { // Specifically clear after sending email
+            } else if (clearMainTypedTextAfterSend) { 
                 typedText = "";
                 typedTextArea.textContent = "";
             }
-            // If neither, typedText (main message) remains as is for other scenarios.
             
             originalTypedTextBeforeEmail = ""; 
-            // senderEmailUsername is not needed as SENDER_EMAIL_ADDRESS is used
             receiverEmailUsername = "";
 
             activeSpecialKeyboardType = null;
@@ -953,13 +950,12 @@
             
             if (inputMethod === "blink") { 
                 resetToRowScan();      
-            } else { // Click mode
-                // Update suggestions based on potentially restored or cleared typedText
+            } else { 
                 const prefix = typedText.match(/([^\s]+)$/)?.[0] || "";
                 getCombinedSuggestions(prefix).then(suggestions => {
                     currentSuggestionObjects = suggestions; displaySuggestions();
                 }).catch(err => { currentSuggestionObjects = []; displaySuggestions();});
-                updateKeyboardHighlight(); // Clear any blink mode highlights
+                updateKeyboardHighlight(); 
             }
             updateKeyAppearanceForInputMode();
         }
@@ -1050,7 +1046,6 @@
             console.log("startEmailSetup: originalTypedTextBeforeEmail captured:", originalTypedTextBeforeEmail);
             typedText = ""; 
             typedTextArea.textContent = ""; 
-            // senderEmailUsername is not set here as SENDER_EMAIL_ADDRESS is used
             receiverEmailUsername = "";
             statusText.textContent = "Status: Email Setup";
             emailSetupInstructions.textContent = `Enter Receiver's Gmail Username (before ${EMAIL_DOMAIN_SUFFIX}).`;
@@ -1090,7 +1085,7 @@
                 return; 
             }
             // Priority 2: Final Email Confirmation Screen Actions
-            else if (emailSetupPhase === "confirm_send") { // Check this before other modes if in email confirm
+            else if (emailSetupPhase === "confirm_send") { 
                 if (char === EMAIL_SEND_KEY) {
                     if(!isFromMouseClick && inputMethod === "blink") playSound("email_send");
                     const fullReceiver = receiverEmailUsername + EMAIL_DOMAIN_SUFFIX;
@@ -1103,8 +1098,7 @@
                     statusText.textContent = "Status: Email cancelled.";
                     resetAndDisplayMainKeyboard(true); 
                 }
-                // No postActionKeyboardResetNeeded as resetAndDisplayMainKeyboard handles it.
-                return; // Explicitly return after handling email confirm actions
+                return; 
             }
             // Priority 3: Suggestion Selection
             else if (isSuggestion) {
@@ -1138,13 +1132,13 @@
 
                 if (char === EMAIL_NEXT_FIELD_KEY) {
                     playSound("email_next"); 
-                    // Since sender is hardcoded, we only have one "Next" step: from receiver to confirm
                     receiverEmailUsername = typedText; 
-                    typedText = ""; typedTextArea.textContent = ""; 
+                    typedText = ""; // Clear for the confirm screen's special display
+                    // typedTextArea.textContent = ""; // Don't clear here, displayEmailConfirmScreen will set innerHTML
                     emailSetupPhase = "confirm_send";
                     emailSetupInstructions.textContent = "Confirm and send?";
                     displayEmailConfirmScreen(); 
-                    postActionKeyboardResetNeeded = false; 
+                    return; // IMPORTANT: Return to prevent further processing
                     
                 } else if (char === EMAIL_CANCEL_SETUP_KEY) {
                     if(!isFromMouseClick && inputMethod === "blink") playSound("key_action");
