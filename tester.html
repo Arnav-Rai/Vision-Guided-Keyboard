@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Keyboard - User-Triggered Suggestion Scan V3 (Calibration)</title>
+    <title>Keyboard - User-Triggered Suggestion Scan V6 (Updated Labels)</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
@@ -29,7 +29,7 @@
             border-radius: 12px;
             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
             width: 100%;
-            max-width: 450px;
+            max-width: 450px; 
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -41,8 +41,8 @@
         }
 
         #startButton {
-            padding: 12px 25px;
-            font-size: 1em;
+            padding: 12px 20px; 
+            font-size: 0.9em; 
             background-color: #61afef;
             color: #282c34;
             border: none;
@@ -50,7 +50,9 @@
             cursor: pointer;
             transition: background-color 0.3s ease;
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            min-width: 180px; /* For countdown text */
+            min-width: 220px; 
+            white-space: normal; 
+            line-height: 1.3;
         }
         #startButton:hover {
             background-color: #529bcf;
@@ -65,7 +67,7 @@
             margin-top: 10px;
             font-size: 0.9em;
             color: #98c379;
-            min-height: 1.2em; /* Prevent layout shift */
+            min-height: 1.2em; 
         }
         #eyeStatus {
             color: #e06c75;
@@ -80,9 +82,9 @@
             background-color: #4a5058;
             border-radius: 6px;
             font-size: 0.95em;
-            color: #e5c07b; /* Amber for instructions */
+            color: #e5c07b; 
             text-align: center;
-            display: none; /* Hidden by default */
+            display: none; 
         }
 
 
@@ -163,18 +165,25 @@
         }
         .key.special-key {
             background-color: #5c6370;
-            font-size: 0.75em;
+            font-size: 0.75em; 
+            padding: 0 3px; 
+            line-height: 1.2; 
+            text-align: center;
+            word-break: keep-all; /* Try to prevent breaking words like "Suggest" */
         }
-        .key.space-key {
-            width: 181px;
-            font-size: 0.8em;
-        }
+
         .key.backspace-key {
              width: 55px;
         }
-         .key.final-row-key {
-            width: 86.5px;
+         .key.final-row-key { 
+            width: 86.5px; 
+            /* font-size might need adjustment if "Suggest" or "Search" are too long */
+            /* Example: font-size: 0.7em; if needed */
          }
+         .key.number-key, .key.punctuation-key { 
+            font-size: 1.1em; 
+         }
+
 
         .key.highlighted {
             background-color: #98c379;
@@ -195,12 +204,12 @@
             border: 2px solid #FFA000;
             transform: scale(1.1);
         }
-         .keyboard-row.selection-pending .key {
+         .keyboard-row.selection-pending .key { 
             background-color: #FFC107 !important;
             color: #21252b !important;
             border: 2px solid #FFA000 !important;
         }
-        .key.cancel-option-pending {
+        .key.cancel-option-pending { 
             background-color: #e06c75 !important;
             color: #ffffff !important;
             border: 2px solid #d05c65 !important;
@@ -213,12 +222,12 @@
             color: #282c34;
             border-color: #529bcf;
         }
-        .row-highlighted .key.highlighted {
+        .row-highlighted .key.highlighted { 
             background-color: #98c379;
             color: #282c34;
             border-color: #88b369;
         }
-        .row-highlighted .key.cancel-option-pending {
+        .row-highlighted .key.cancel-option-pending { 
              background-color: #e06c75 !important;
             color: #ffffff !important;
             border: 2px solid #d05c65 !important;
@@ -310,35 +319,42 @@
         let PERSONALIZED_WORD_LIST = {};
         const DEFAULT_FALLBACK_WORDS = ["HELLO", "WORLD", "YES", "NO", "PLEASE", "THANK", "YOU", "GOOD", "MORNING", "AFTERNOON", "EVENING", "HELP"];
         const MAX_SUGGESTIONS = 3;
-        const SUGGESTION_SKIP_TEXT = "[Skip]";
+        const SUGGESTION_SKIP_TEXT = "[Skip]"; // Keeping brackets for this system message
 
-        const SUGGEST_KEY_CHAR = "[Sugg]";
-        const SEARCH_KEY_CHAR = "[Srch]";
+        const SUGGEST_KEY_CHAR = "Suggest"; // Updated
+        const SEARCH_KEY_CHAR = "Search";   // Updated
         const BACKSPACE_KEY_CHAR = "<-";
-        const DELETE_KEY_CHAR = "DEL";
-        const CANCEL_KEY_CHAR = "CNCL";
+        const DELETE_KEY_CHAR = "DEL";      // Already no brackets
+        const CANCEL_KEY_CHAR = "CNCL";     // Already no brackets
         const SPACE_KEY_CHAR = " ";
         const SPACE_KEY_DISPLAY_TEXT = "SPACE";
+        const NUM_KEY_CHAR = "Num";         // Updated
+        const PUNC_KEY_CHAR = "[,.]";       // Brackets retained as requested
+
+        const NUMBERS_LAYOUT_CONFIG = { chars: "1234567890".split(''), type: 'number' };
+        const PUNCTUATION_LAYOUT_CONFIG = { chars: ",.@?!'".split(''), type: 'punctuation' };
+
 
         const KEYS_PER_ALPHABET_ROW = 6;
-        const NUM_ALPHABET_ROWS = 4;
-        const SPECIAL_KEYS_FINAL_ROW = [SUGGEST_KEY_CHAR, SEARCH_KEY_CHAR, DELETE_KEY_CHAR, CANCEL_KEY_CHAR];
+        const NUM_ALPHABET_ROWS = 4; 
+        const SPECIAL_KEYS_FINAL_ROW_CHARS = [SUGGEST_KEY_CHAR, SEARCH_KEY_CHAR, DELETE_KEY_CHAR, CANCEL_KEY_CHAR];
 
-        const TRAVERSAL_INTERVAL = 0.8; // Seconds
-        const POST_SELECTION_PAUSE = 0.6; // Seconds
-        const INITIAL_DELAY = 1.0; // Seconds, after calibration
-        let minEarThreshold = 0.25; // Will be calibrated
-        const INITIAL_EAR_FOR_CALIBRATION_DETECTION = 0.20; // Fixed threshold to detect blinks during calibration
-        const CALIBRATION_BLINK_MIN_FRAMES_LOW = 2; // Min frames EAR must be low for a calibration blink
-        const CALIBRATION_BLINK_MIN_FRAMES_HIGH = 2; // Min frames EAR must be high after low for a calibration blink
-        const SELECTION_BLINK_MIN_FRAMES = 2; // For regular selections
+
+        const TRAVERSAL_INTERVAL = 0.8; 
+        const POST_SELECTION_PAUSE = 0.6; 
+        const INITIAL_DELAY = 1.0; 
+        let minEarThreshold = 0.25; 
+        const INITIAL_EAR_FOR_CALIBRATION_DETECTION = 0.20;
+        const CALIBRATION_BLINK_MIN_FRAMES_LOW = 2;
+        const CALIBRATION_BLINK_MIN_FRAMES_HIGH = 2;
+        const SELECTION_BLINK_MIN_FRAMES = 2; 
 
         // State Variables
-        let keyboardRows = [];
+        let keyboardRows = []; 
         let currentScanMode;
         let currentRowScanIndex = 0;
-        let currentKeyScanIndexInRow = 0;
-        let selectedRowIndex = -1;
+        let currentKeyScanIndexInRow = 0; 
+        let selectedRowIndex = -1; 
         let originalSelectedRowForKeyScan = -1;
         let lastTraversalTime = performance.now();
         let typedText = "";
@@ -350,7 +366,7 @@
         let activeSuggestionListForScanning = [];
         let eyeClosureFramesCount = 0;
         let isTraversalPausedForSelectionConsideration = false;
-        let isOfferingKeyScanCancel = false;
+        let isOfferingKeyScanCancel = false; 
         let currentSuggestionIndex = 0;
 
         let faceMesh;
@@ -368,39 +384,51 @@
         let isCalibrating = false;
         let calibrationBlinksNeeded = 3;
         let calibrationEarValues = [];
-        let calibrationState = "idle"; // "idle", "detecting_low", "detecting_high"
+        let calibrationState = "idle";
         let calibrationFramesLowCount = 0;
         let calibrationFramesHighCount = 0;
-        let currentCalibrationBlinkMinEar = 1.0; // Track min EAR for current blink
+        let currentCalibrationBlinkMinEar = 1.0;
 
         // Auto-start State
         let autoStartTimerId = null;
-        let autoStartCountdown = 2; // seconds
-        const AUTO_START_INTERVAL = 1000; // ms
+        let autoStartCountdown = 2; 
+        const AUTO_START_INTERVAL = 1000; 
+        let isAutoStartActive = false; 
+        let isAutoStartPaused = false; 
+
+
+        // Special Keyboard State
+        let activeSpecialKeyboardType = null; 
+        let specialKeyboardRowElements = []; 
 
         const SCANNING_MODE_ROW = 0;
-        const SCANNING_MODE_KEY = 1;
+        const SCANNING_MODE_KEY = 1; 
         const SCANNING_MODE_SUGGESTION = 2;
+        const SCANNING_MODE_SPECIAL_ROW = 3; 
+
         const LEFT_EYE_INDICES = [362, 385, 387, 263, 373, 380];
         const RIGHT_EYE_INDICES = [33, 160, 158, 133, 153, 144];
 
         // --- Auto-start Camera Logic ---
         function startAutoStartTimer() {
-            if (autoStartTimerId) clearInterval(autoStartTimerId); // Clear existing if any
-            autoStartCountdown = 2;
-            startButton.textContent = `Starting in ${autoStartCountdown}s...`;
-            startButton.disabled = false; // Allow manual click
+            if (autoStartTimerId) clearInterval(autoStartTimerId); 
+            isAutoStartActive = true;
+            isAutoStartPaused = false;
+            autoStartCountdown = 2; 
+            startButton.textContent = `Starting in ${autoStartCountdown}s... (Click to Pause)`;
+            startButton.disabled = false; 
 
             autoStartTimerId = setInterval(() => {
                 autoStartCountdown--;
                 if (autoStartCountdown > 0) {
-                    startButton.textContent = `Starting in ${autoStartCountdown}s...`;
+                    startButton.textContent = `Starting in ${autoStartCountdown}s... (Click to Pause)`;
                 } else {
                     clearInterval(autoStartTimerId);
                     autoStartTimerId = null;
-                    startButton.textContent = "Starting...";
+                    isAutoStartActive = false;
+                    startButton.textContent = "Starting..."; 
                     startButton.disabled = true;
-                    startApp(); // Auto-start
+                    startApp(); 
                 }
             }, AUTO_START_INTERVAL);
         }
@@ -409,12 +437,12 @@
             if (autoStartTimerId) {
                 clearInterval(autoStartTimerId);
                 autoStartTimerId = null;
-                startButton.textContent = "Start Camera"; // Reset text if manually stopped
             }
+            isAutoStartActive = false;
         }
 
-        // --- Model Loading & Word Lists (mostly unchanged, ensure paths are correct) ---
-        async function loadCharMappings() {
+        // --- Model Loading & Word Lists ---
+        async function loadCharMappings() { /* ... (implementation unchanged) ... */ 
             try {
                 const response = await fetch('./char_mappings.json');
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status} for char_mappings.json`);
@@ -425,8 +453,7 @@
                 if (!charToIndex || !indexToChar || !modelSequenceLength || !modelVocabSize) throw new Error("Character mapping data incomplete.");
             } catch (error) { console.error("Could not load char_mappings.json:", error); modelStatusText.textContent = "Model: CharMap Error"; tfModelLoaded = false; }
         }
-
-        async function loadTFModel() {
+        async function loadTFModel() { /* ... (implementation unchanged) ... */ 
             if (Object.keys(charToIndex).length === 0) { modelStatusText.textContent = "Model: Not Loaded (No CharMap)"; return; }
             modelStatusText.textContent = "Model: Loading...";
             try {
@@ -439,8 +466,7 @@
                 }
             } catch (error) { console.error("Error loading TF.js model:", error); modelStatusText.textContent = "Model: Error loading"; tfModelLoaded = false; }
         }
-
-        async function getTFModelSuggestions(prefix) {
+        async function getTFModelSuggestions(prefix) { /* ... (implementation unchanged) ... */ 
             if (!tfModelLoaded || !tfModel || !prefix || prefix.length === 0 || Object.keys(charToIndex).length === 0) return [];
             let currentGeneratedSequence = prefix.toLowerCase();
             const modelSuggestionsOutput = new Set();
@@ -474,8 +500,7 @@
                 return Array.from(modelSuggestionsOutput).map(text => ({ text, source: 'model' }));
             } catch (error) { console.error("Error during TF model prediction:", error); return []; }
         }
-
-        async function loadWordLists() {
+        async function loadWordLists() { /* ... (implementation unchanged) ... */ 
             try {
                 const storedPersonalizedWords = localStorage.getItem('personalizedWordList');
                 PERSONALIZED_WORD_LIST = storedPersonalizedWords ? JSON.parse(storedPersonalizedWords) : {};
@@ -488,13 +513,11 @@
                 if (BASE_WORD_LIST.length === 0) BASE_WORD_LIST = [...DEFAULT_FALLBACK_WORDS];
             } catch (error) { BASE_WORD_LIST = [...DEFAULT_FALLBACK_WORDS]; }
         }
-
-        function savePersonalizedWords() {
-            try { localStorage.setItem('personalizedWordList', JSON.stringify(PERSONALIZED_WORD_LIST)); }
+        function savePersonalizedWords() { /* ... (implementation unchanged) ... */ 
+            try { localStorage.setItem('personalizedWordList', JSON.stringify(PERSONALIZED_WORD_LIST)); } 
             catch (e) { console.error("Error saving personalized words:", e); }
         }
-
-        function learnWord(word) {
+        function learnWord(word) { /* ... (implementation unchanged) ... */ 
             if (!word || typeof word !== 'string' || word.length === 0) return;
             const upperWord = word.trim().toUpperCase();
             if (upperWord.length < 2 && !["A", "I"].includes(upperWord)) return;
@@ -502,12 +525,11 @@
             savePersonalizedWords();
         }
 
-        // --- Audio & EAR Calculation (unchanged) ---
-        function initAudio() {
+        // --- Audio & EAR Calculation ---
+        function initAudio() { /* ... (implementation unchanged) ... */ 
             if (!audioCtx && (window.AudioContext || window.webkitAudioContext)) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         }
-
-        function playSound(type = "key_action") {
+        function playSound(type = "key_action") { /* ... (implementation unchanged) ... */ 
             if (!audioCtx) return;
             try {
                 const oscillator = audioCtx.createOscillator();
@@ -515,23 +537,23 @@
                 oscillator.connect(gainNode); gainNode.connect(audioCtx.destination);
                 gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
                 oscillator.type = 'square';
-                let freq = 440;
+                let freq = 440; 
                 if (type === "calibration_blink") freq = 660;
                 else if (type === "calibration_done") freq = 880;
                 else if (type === "row_select") freq = 330;
                 else if (type === "suggestion_select") freq = 550;
+                else if (type === "special_key_select") freq = 380; 
+                else if (type === "special_char_select") freq = 480; 
                 oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime);
                 oscillator.start(); oscillator.stop(audioCtx.currentTime + 0.15);
             } catch (e) { console.error("Error playing sound:", type, e); }
         }
-
-        function calculateDistance(p1, p2) {
+        function calculateDistance(p1, p2) { /* ... (implementation unchanged) ... */ 
             if (!p1 || !p2 || p1.x === undefined || p2.x === undefined) return 0.0;
             return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
         }
-
-        function calculateEAR(eyeLandmarks) {
-            if (!eyeLandmarks || eyeLandmarks.length !== 6) return 0.6; // Default high if no landmarks
+        function calculateEAR(eyeLandmarks) { /* ... (implementation unchanged) ... */ 
+            if (!eyeLandmarks || eyeLandmarks.length !== 6) return 0.6; 
             for(let lm of eyeLandmarks) if(!lm || lm.x === undefined || lm.y === undefined) return 0.6;
             const v1 = calculateDistance(eyeLandmarks[1], eyeLandmarks[5]);
             const v2 = calculateDistance(eyeLandmarks[2], eyeLandmarks[4]);
@@ -539,10 +561,10 @@
             return h1 <= 1e-6 ? 0.6 : (v1 + v2) / (2.0 * h1);
         }
 
-        // --- Keyboard Layout & Highlighting (mostly unchanged) ---
-        function generateKeyboardLayout() {
-            keyboardRows = [];
-            keyboardArea.innerHTML = '';
+        // --- Keyboard Layout & Highlighting ---
+        function generateKeyboardLayout() { /* ... (implementation unchanged, uses updated constants) ... */ 
+            keyboardRows = []; 
+            keyboardArea.innerHTML = ''; 
             const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
             let letterIdx = 0;
 
@@ -551,7 +573,7 @@
                 rowDiv.className = 'keyboard-row'; rowDiv.id = `kb-row-${r}`;
                 let currentLayoutRow = [];
                 for (let i = 0; i < KEYS_PER_ALPHABET_ROW; i++) {
-                    if (letterIdx < 24) {
+                    if (letterIdx < 24) { 
                         const char = letters[letterIdx++];
                         const keyDiv = document.createElement('div'); keyDiv.className = 'key'; keyDiv.id = `key-${r}-${i}`; keyDiv.textContent = char;
                         rowDiv.appendChild(keyDiv); currentLayoutRow.push({ char: char, element: keyDiv, row: r, col: i });
@@ -560,86 +582,123 @@
                 keyboardRows.push(currentLayoutRow); keyboardArea.appendChild(rowDiv);
             }
 
-            const row5Div = document.createElement('div'); row5Div.className = 'keyboard-row'; row5Div.id = `kb-row-${NUM_ALPHABET_ROWS}`;
-            let row5Layout = [];
-            const row5KeyDefinitions = [
-                { char: letters[24], display: letters[24], class: 'key' }, // Y
-                { char: letters[25], display: letters[25], class: 'key' }, // Z
-                { char: SPACE_KEY_CHAR, display: SPACE_KEY_DISPLAY_TEXT, class: 'key space-key' },
-                { char: BACKSPACE_KEY_CHAR, display: BACKSPACE_KEY_CHAR, class: 'key backspace-key special-key' }
+            const row4Div = document.createElement('div'); row4Div.className = 'keyboard-row'; row4Div.id = `kb-row-${NUM_ALPHABET_ROWS}`;
+            let row4Layout = [];
+            const row4KeyDefinitions = [
+                { char: letters[24], display: letters[24], classList: 'key' }, 
+                { char: letters[25], display: letters[25], classList: 'key' }, 
+                { char: NUM_KEY_CHAR, display: NUM_KEY_CHAR, classList: 'key special-key' }, // Display will be "Num"
+                { char: PUNC_KEY_CHAR, display: PUNC_KEY_CHAR, classList: 'key special-key' }, // Display will be "[,.]"
+                { char: SPACE_KEY_CHAR, display: SPACE_KEY_DISPLAY_TEXT, classList: 'key' }, 
+                { char: BACKSPACE_KEY_CHAR, display: BACKSPACE_KEY_CHAR, classList: 'key special-key backspace-key' }
             ];
-            row5KeyDefinitions.forEach((keyDef, i) => {
-                const keyDiv = document.createElement('div'); keyDiv.className = keyDef.class; keyDiv.id = `key-${NUM_ALPHABET_ROWS}-${i}`; keyDiv.textContent = keyDef.display;
-                row5Div.appendChild(keyDiv); row5Layout.push({ char: keyDef.char, element: keyDiv, row: NUM_ALPHABET_ROWS, col: i });
+            row4KeyDefinitions.forEach((keyDef, i) => {
+                const keyDiv = document.createElement('div'); keyDiv.className = keyDef.classList; keyDiv.id = `key-${NUM_ALPHABET_ROWS}-${i}`; keyDiv.textContent = keyDef.display;
+                row4Div.appendChild(keyDiv); row4Layout.push({ char: keyDef.char, element: keyDiv, row: NUM_ALPHABET_ROWS, col: i });
+            });
+            keyboardRows.push(row4Layout); keyboardArea.appendChild(row4Div);
+
+            const row5Div = document.createElement('div'); row5Div.className = 'keyboard-row'; row5Div.id = `kb-row-${NUM_ALPHABET_ROWS + 1}`;
+            let row5Layout = [];
+            SPECIAL_KEYS_FINAL_ROW_CHARS.forEach((char, i) => { // Will use "Suggest", "Search", "DEL", "CNCL"
+                const keyDiv = document.createElement('div'); keyDiv.className = 'key special-key final-row-key'; keyDiv.id = `key-${NUM_ALPHABET_ROWS + 1}-${i}`; keyDiv.textContent = char;
+                row5Div.appendChild(keyDiv); row5Layout.push({ char: char, element: keyDiv, row: NUM_ALPHABET_ROWS + 1, col: i });
             });
             keyboardRows.push(row5Layout); keyboardArea.appendChild(row5Div);
-
-            const row6Div = document.createElement('div'); row6Div.className = 'keyboard-row'; row6Div.id = `kb-row-${NUM_ALPHABET_ROWS + 1}`;
-            let row6Layout = [];
-            SPECIAL_KEYS_FINAL_ROW.forEach((char, i) => {
-                const keyDiv = document.createElement('div'); keyDiv.className = 'key special-key final-row-key'; keyDiv.id = `key-${NUM_ALPHABET_ROWS + 1}-${i}`; keyDiv.textContent = char;
-                row6Div.appendChild(keyDiv); row6Layout.push({ char: char, element: keyDiv, row: NUM_ALPHABET_ROWS + 1, col: i });
-            });
-            keyboardRows.push(row6Layout); keyboardArea.appendChild(row6Div);
         }
+        function displaySpecialKeyboard(layoutConfig) { /* ... (implementation unchanged) ... */ 
+            keyboardArea.innerHTML = ''; 
+            specialKeyboardRowElements = []; 
+            activeSpecialKeyboardType = layoutConfig.type;
 
-        function updateKeyboardHighlight() {
-            keyboardRows.forEach((row, rIdx) => {
-                const rowDiv = document.getElementById(`kb-row-${rIdx}`);
-                if (rowDiv) { rowDiv.classList.remove('row-highlighted', 'selection-pending'); }
-                if(row) row.forEach(key => key.element.classList.remove('highlighted', 'selection-pending', 'cancel-option-pending'));
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'keyboard-row';
+            rowDiv.id = `kb-special-row-${layoutConfig.type}`;
+
+            layoutConfig.chars.forEach((char, i) => {
+                const keyDiv = document.createElement('div');
+                keyDiv.className = `key ${layoutConfig.type}-key`; 
+                keyDiv.id = `key-special-${layoutConfig.type}-${i}`;
+                keyDiv.textContent = char;
+                rowDiv.appendChild(keyDiv);
+                specialKeyboardRowElements.push({ char: char, element: keyDiv, row: 0, col: i });
             });
-            suggestionsArea.querySelectorAll('.suggestion').forEach(sugg => sugg.classList.remove('highlighted', 'selection-pending', 'personalized', 'model-prediction'));
 
-            if (isCalibrating || !initialDelayPassed || isPausedAfterSelection) return; // No highlight during calibration or pauses
+            const cancelKeyDiv = document.createElement('div');
+            cancelKeyDiv.className = 'key special-key'; 
+            cancelKeyDiv.id = `key-special-${layoutConfig.type}-cancel`;
+            cancelKeyDiv.textContent = CANCEL_KEY_CHAR;
+            rowDiv.appendChild(cancelKeyDiv);
+            specialKeyboardRowElements.push({ char: CANCEL_KEY_CHAR, element: cancelKeyDiv, row: 0, col: layoutConfig.chars.length });
+
+            keyboardArea.appendChild(rowDiv);
+            lastTraversalTime = performance.now(); 
+            currentKeyScanIndexInRow = 0; 
+            updateKeyboardHighlight(); 
+        }
+        function updateKeyboardHighlight() { /* ... (implementation unchanged) ... */ 
+            document.querySelectorAll('.key.highlighted, .key.selection-pending, .key.cancel-option-pending, .keyboard-row.row-highlighted, .keyboard-row.selection-pending')
+                .forEach(el => el.classList.remove('highlighted', 'selection-pending', 'cancel-option-pending', 'row-highlighted'));
+            suggestionsArea.querySelectorAll('.suggestion.highlighted, .suggestion.selection-pending')
+                .forEach(sugg => sugg.classList.remove('highlighted', 'selection-pending'));
+
+            if (isCalibrating || !initialDelayPassed || isPausedAfterSelection) return;
 
             let elementToMark = null;
-            let suggestionSource = null;
-            let isCancelOption = false;
+            let suggestionSource = null; 
+            let isCancelForMainKeyboard = false; 
 
-            if (currentScanMode === SCANNING_MODE_ROW && keyboardRows[currentRowScanIndex]) {
-                const rowDiv = document.getElementById(`kb-row-${currentRowScanIndex}`);
-                if (rowDiv) rowDiv.classList.add(isTraversalPausedForSelectionConsideration ? 'selection-pending' : 'row-highlighted');
-            } else if (currentScanMode === SCANNING_MODE_KEY) {
+            if (currentScanMode === SCANNING_MODE_ROW) {
+                if (keyboardRows[currentRowScanIndex]) {
+                    const rowDiv = document.getElementById(`kb-row-${currentRowScanIndex}`);
+                    if (rowDiv) rowDiv.classList.add(isTraversalPausedForSelectionConsideration ? 'selection-pending' : 'row-highlighted');
+                }
+            } else if (currentScanMode === SCANNING_MODE_KEY) { 
                 if (selectedRowIndex !== -1 && keyboardRows[selectedRowIndex]?.[currentKeyScanIndexInRow]) {
                     elementToMark = keyboardRows[selectedRowIndex][currentKeyScanIndexInRow].element;
                     if (isOfferingKeyScanCancel && keyboardRows[selectedRowIndex][currentKeyScanIndexInRow].char === CANCEL_KEY_CHAR) {
-                        isCancelOption = true;
+                        isCancelForMainKeyboard = true; 
                     }
                 }
             } else if (currentScanMode === SCANNING_MODE_SUGGESTION) {
                 const suggestions = suggestionsArea.querySelectorAll('.suggestion');
-                if (typeof currentSuggestionIndex !== 'number' || isNaN(currentSuggestionIndex)) currentSuggestionIndex = 0;
-                if (suggestions[currentSuggestionIndex] && activeSuggestionListForScanning?.[currentSuggestionIndex]) {
+                if (activeSuggestionListForScanning?.[currentSuggestionIndex]) {
                     elementToMark = suggestions[currentSuggestionIndex];
                     suggestionSource = activeSuggestionListForScanning[currentSuggestionIndex].source;
+                }
+            } else if (currentScanMode === SCANNING_MODE_SPECIAL_ROW) { 
+                if (specialKeyboardRowElements[currentKeyScanIndexInRow]) {
+                    elementToMark = specialKeyboardRowElements[currentKeyScanIndexInRow].element;
                 }
             }
 
             if (elementToMark) {
-                if (isCancelOption) elementToMark.classList.add('cancel-option-pending');
-                else if (isTraversalPausedForSelectionConsideration) elementToMark.classList.add('selection-pending');
-                else elementToMark.classList.add('highlighted');
+                if (isCancelForMainKeyboard) { 
+                    elementToMark.classList.add('cancel-option-pending');
+                } else if (isTraversalPausedForSelectionConsideration) {
+                    elementToMark.classList.add('selection-pending');
+                } else {
+                    elementToMark.classList.add('highlighted');
+                }
                 if (suggestionSource === 'personalized') elementToMark.classList.add('personalized');
                 else if (suggestionSource === 'model') elementToMark.classList.add('model-prediction');
             }
         }
 
-        // --- Suggestions Logic (mostly unchanged) ---
-        function getPersonalizedSuggestions(prefix) {
+        // --- Suggestions Logic ---
+        function getPersonalizedSuggestions(prefix) { /* ... (implementation unchanged) ... */ 
             if (!prefix) return [];
             const prefixLower = prefix.toLowerCase();
             return Object.entries(PERSONALIZED_WORD_LIST)
                 .filter(([word]) => word.toLowerCase().startsWith(prefixLower))
-                .map(([text, frequency]) => ({ text, frequency, source: 'personalized' }))
+                .map(([text, frequency]) => ({ text, frequency, source: 'personalized' })) 
                 .sort((a, b) => b.frequency - a.frequency);
         }
-
-        async function getCombinedSuggestions(prefix) {
+        async function getCombinedSuggestions(prefix) { /* ... (implementation unchanged) ... */ 
             if (!prefix) return [];
             const prefixLower = prefix.toLowerCase();
             let combined = [];
-            const addedTexts = new Set();
+            const addedTexts = new Set(); 
 
             const personalized = getPersonalizedSuggestions(prefixLower);
             personalized.forEach(sugg => {
@@ -649,14 +708,14 @@
             });
 
             if (combined.length < MAX_SUGGESTIONS && tfModelLoaded) {
-                const modelSuggestions = await getTFModelSuggestions(prefixLower);
+                const modelSuggestions = await getTFModelSuggestions(prefixLower); 
                 modelSuggestions.forEach(sugg => {
                     if (combined.length < MAX_SUGGESTIONS && !addedTexts.has(sugg.text.toLowerCase())) {
                         combined.push(sugg); addedTexts.add(sugg.text.toLowerCase());
                     }
                 });
             }
-
+            
             if (combined.length < MAX_SUGGESTIONS) {
                 for (const word of BASE_WORD_LIST) {
                     if (combined.length >= MAX_SUGGESTIONS) break;
@@ -665,10 +724,9 @@
                     }
                 }
             }
-            return combined.slice(0, MAX_SUGGESTIONS);
+            return combined.slice(0, MAX_SUGGESTIONS); 
         }
-
-        function displaySuggestions() {
+        function displaySuggestions() { /* ... (implementation unchanged) ... */ 
             suggestionsArea.innerHTML = '';
             const listToDisplay = (currentScanMode === SCANNING_MODE_SUGGESTION) ? activeSuggestionListForScanning : currentSuggestionObjects;
             if (!listToDisplay || listToDisplay.length === 0) {
@@ -676,27 +734,39 @@
             }
             listToDisplay.forEach(suggObj => {
                 const suggDiv = document.createElement('div'); suggDiv.className = 'suggestion';
-                suggDiv.textContent = suggObj.text;
+                suggDiv.textContent = suggObj.text; 
                 if (suggObj.source === 'personalized') suggDiv.classList.add('personalized');
                 else if (suggObj.source === 'model') suggDiv.classList.add('model-prediction');
                 suggestionsArea.appendChild(suggDiv);
             });
-            updateKeyboardHighlight();
+            updateKeyboardHighlight(); 
         }
 
         // --- Core Scanning Logic & State Management ---
-        function resetToRowScan() {
-            currentScanMode = SCANNING_MODE_ROW; currentRowScanIndex = 0; selectedRowIndex = -1; originalSelectedRowForKeyScan = -1;
-            currentKeyScanIndexInRow = 0; activeSuggestionListForScanning = []; currentSuggestionIndex = 0;
+        function resetToRowScan() { /* ... (implementation unchanged) ... */ 
+            currentScanMode = SCANNING_MODE_ROW;
+            currentRowScanIndex = 0;
+            selectedRowIndex = -1;
+            originalSelectedRowForKeyScan = -1;
+            currentKeyScanIndexInRow = 0; 
+            activeSuggestionListForScanning = [];
+            currentSuggestionIndex = 0;
             lastTraversalTime = performance.now();
-            isTraversalPausedForSelectionConsideration = false; isOfferingKeyScanCancel = false;
+            isTraversalPausedForSelectionConsideration = false;
+            isOfferingKeyScanCancel = false;
             eyeClosureFramesCount = 0;
             statusText.textContent = "Status: Row Scanning";
-            displaySuggestions();
+            displaySuggestions(); 
+            updateKeyboardHighlight(); 
         }
-
-        function handleCalibration(avgEar) {
-            if (!isCalibrating) return false; // Not in calibration mode
+        function resetAndDisplayMainKeyboard() { /* ... (implementation unchanged) ... */ 
+            activeSpecialKeyboardType = null;
+            specialKeyboardRowElements = [];
+            generateKeyboardLayout();    
+            resetToRowScan();            
+        }
+        function handleCalibration(avgEar) { /* ... (implementation unchanged) ... */ 
+            if (!isCalibrating) return false; 
 
             calibrationInstructions.style.display = 'block';
             loadingMessage.textContent = `Calibrating: ${calibrationBlinksNeeded} blink(s) remaining.`;
@@ -706,7 +776,7 @@
                 if (avgEar < INITIAL_EAR_FOR_CALIBRATION_DETECTION) {
                     calibrationState = "detecting_low";
                     calibrationFramesLowCount = 1;
-                    currentCalibrationBlinkMinEar = avgEar; // Start tracking min EAR for this potential blink
+                    currentCalibrationBlinkMinEar = avgEar; 
                 }
             } else if (calibrationState === "detecting_low") {
                 if (avgEar < INITIAL_EAR_FOR_CALIBRATION_DETECTION) {
@@ -714,105 +784,85 @@
                     if (avgEar < currentCalibrationBlinkMinEar) {
                         currentCalibrationBlinkMinEar = avgEar;
                     }
-                } else { // EAR rose above threshold
+                } else { 
                     if (calibrationFramesLowCount >= CALIBRATION_BLINK_MIN_FRAMES_LOW) {
                         calibrationState = "detecting_high";
                         calibrationFramesHighCount = 1;
-                    } else { // Not a long enough dip, reset
+                    } else { 
                         calibrationState = "idle";
                         calibrationFramesLowCount = 0;
                         currentCalibrationBlinkMinEar = 1.0;
                     }
                 }
             } else if (calibrationState === "detecting_high") {
-                if (avgEar > INITIAL_EAR_FOR_CALIBRATION_DETECTION) { // Check if it's still above (or a slightly higher threshold)
+                if (avgEar > INITIAL_EAR_FOR_CALIBRATION_DETECTION) { 
                     calibrationFramesHighCount++;
                     if (calibrationFramesHighCount >= CALIBRATION_BLINK_MIN_FRAMES_HIGH) {
-                        // Blink detected!
+                        
                         calibrationEarValues.push(currentCalibrationBlinkMinEar);
                         calibrationBlinksNeeded--;
                         playSound("calibration_blink");
                         loadingMessage.textContent = `Blink ${3 - calibrationBlinksNeeded} registered! Min EAR: ${currentCalibrationBlinkMinEar.toFixed(2)}. ${calibrationBlinksNeeded} more.`;
                         console.log(`Calibration blink ${3-calibrationBlinksNeeded} detected. Min EAR: ${currentCalibrationBlinkMinEar}`);
 
-                        // Reset for next blink detection
                         calibrationState = "idle";
                         calibrationFramesLowCount = 0;
                         calibrationFramesHighCount = 0;
                         currentCalibrationBlinkMinEar = 1.0;
 
                         if (calibrationBlinksNeeded === 0) {
-                            // Calibration complete
                             if (calibrationEarValues.length > 0) {
                                 const sumEar = calibrationEarValues.reduce((sum, val) => sum + val, 0);
                                 const avgCalibratedEar = sumEar / calibrationEarValues.length;
-                                // Set the threshold slightly higher than the average minimum of blinks,
-                                // or some factor of it. This needs tuning.
-                                // Let's try setting it to be a bit above the average lowest point of a blink.
-                                minEarThreshold = avgCalibratedEar + (0.30 - avgCalibratedEar) * 0.5; // Midpoint between avg blink low and 0.3
-                                if (minEarThreshold > 0.35) minEarThreshold = 0.35; // Cap it
-                                if (minEarThreshold < 0.15) minEarThreshold = 0.15; // Floor it
+                                minEarThreshold = avgCalibratedEar + (0.30 - avgCalibratedEar) * 0.5; 
+                                if (minEarThreshold > 0.35) minEarThreshold = 0.35; 
+                                if (minEarThreshold < 0.15) minEarThreshold = 0.15; 
 
                                 playSound("calibration_done");
                                 loadingMessage.textContent = `Calibration complete! New EAR Threshold: ${minEarThreshold.toFixed(2)}`;
                                 console.log(`Calibration complete. Values: ${calibrationEarValues.join(', ')}. Average Min: ${avgCalibratedEar.toFixed(2)}. New Threshold: ${minEarThreshold.toFixed(2)}`);
                             } else {
-                                minEarThreshold = 0.25; // Fallback
+                                minEarThreshold = 0.25; 
                                 loadingMessage.textContent = "Calibration failed to get values, using default threshold.";
                                 console.warn("Calibration completed with no EAR values, using default.");
                             }
                             isCalibrating = false;
                             calibrationInstructions.style.display = 'none';
-                            // Reset for main app flow
                             startTime = performance.now();
                             initialDelayPassed = false;
                             statusText.textContent = "Status: Initializing keyboard...";
-                            generateKeyboardLayout(); // Ensure keyboard is ready
-                            resetToRowScan(); // Start the main scanning
-                            return true; // Calibration finished
+                            resetAndDisplayMainKeyboard(); 
+                            return true; 
                         }
                     }
-                } else { // EAR dipped again before confirming high, reset high count
-                    calibrationState = "detecting_low"; // Go back to detecting low
-                    // Keep calibrationFramesLowCount as it was, continue from there
+                } else { 
+                    calibrationState = "detecting_low"; 
                 }
             }
-            return true; // Still calibrating
+            return true; 
         }
 
-
-        function onResults(results) {
+        function onResults(results) { /* ... (implementation largely unchanged) ... */ 
             const currentTime = performance.now();
             canvasCtx.save();
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
             let selectionTriggeredThisFrame = false;
-            let avgEar = 0.6; // Default high EAR
+            let avgEar = 0.6;
 
             if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
                 const landmarks = results.multiFaceLandmarks[0];
-                // Optional: Draw landmarks for debugging
-                // drawConnectors(canvasCtx, landmarks, FACEMESH_TESSELATION, {color: '#C0C0C070', lineWidth: 1});
-                // drawConnectors(canvasCtx, landmarks, FACEMESH_RIGHT_EYE, {color: '#FF3030'});
-                // drawConnectors(canvasCtx, landmarks, FACEMESH_LEFT_EYE, {color: '#30FF30'});
-
                 const leftEyeLms = LEFT_EYE_INDICES.map(i => landmarks[i]);
                 const rightEyeLms = RIGHT_EYE_INDICES.map(i => landmarks[i]);
-                const leftEar = calculateEAR(leftEyeLms);
-                const rightEar = calculateEAR(rightEyeLms);
-                avgEar = (leftEar + rightEar) / 2.0;
+                avgEar = (calculateEAR(leftEyeLms) + calculateEAR(rightEyeLms)) / 2.0;
 
                 if (isCalibrating) {
-                    if (handleCalibration(avgEar)) {
-                        canvasCtx.restore();
-                        return; // Still in calibration or just finished
-                    }
+                    if (handleCalibration(avgEar)) { canvasCtx.restore(); return; }
                 }
-                // If calibration finished in this frame, isCalibrating will be false now.
 
                 eyeStatusText.textContent = `EAR: ${avgEar.toFixed(2)}${isTraversalPausedForSelectionConsideration ? ` (Paused - ${eyeClosureFramesCount})` : ""}`;
 
-                if (avgEar < minEarThreshold) { // Use calibrated threshold
+                if (avgEar < minEarThreshold) {
                     if (initialDelayPassed && !isPausedAfterSelection) {
                         isTraversalPausedForSelectionConsideration = true; eyeClosureFramesCount++;
                     }
@@ -824,16 +874,17 @@
                         eyeClosureFramesCount = 0; isTraversalPausedForSelectionConsideration = false;
                     }
                 }
-            } else { // No face detected
-                if (isCalibrating) {
-                     loadingMessage.textContent = "Calibrating: No face detected. Please look at the camera.";
-                }
+            } else {
+                if (isCalibrating) { loadingMessage.textContent = "Calibrating: No face detected."; }
                 eyeStatusText.textContent = "EAR: N/A (No face detected)";
                 eyeClosureFramesCount = 0; isTraversalPausedForSelectionConsideration = false;
-                if(isOfferingKeyScanCancel) { isOfferingKeyScanCancel = false; resetToRowScan(); }
+                if (currentScanMode === SCANNING_MODE_KEY && isOfferingKeyScanCancel) {
+                    isOfferingKeyScanCancel = false; resetAndDisplayMainKeyboard(); 
+                } else if (currentScanMode === SCANNING_MODE_SPECIAL_ROW) {
+                    resetAndDisplayMainKeyboard();
+                }
             }
 
-            // --- Post-selection pause and initial delay logic (after calibration) ---
             if (isPausedAfterSelection && (currentTime - lastSelectionTime) / 1000 >= POST_SELECTION_PAUSE) {
                 isPausedAfterSelection = false; lastTraversalTime = currentTime;
             }
@@ -841,8 +892,8 @@
             if (!isCalibrating && !initialDelayPassed) {
                 const elapsed = (currentTime - startTime) / 1000;
                 statusText.textContent = `Status: Initializing... (${(INITIAL_DELAY - elapsed).toFixed(1)}s)`;
-                if (elapsed >= INITIAL_DELAY) { initialDelayPassed = true; lastTraversalTime = currentTime; resetToRowScan(); }
-            } else if (!isCalibrating && !isPausedAfterSelection) { // Main scanning logic
+                if (elapsed >= INITIAL_DELAY) { initialDelayPassed = true; lastTraversalTime = currentTime; resetToRowScan(); } 
+            } else if (!isCalibrating && !isPausedAfterSelection) {
                 if (selectionTriggeredThisFrame) {
                     lastSelectionTime = currentTime; isPausedAfterSelection = true;
                     isTraversalPausedForSelectionConsideration = false; eyeClosureFramesCount = 0;
@@ -854,60 +905,87 @@
                             isOfferingKeyScanCancel = false;
                             statusText.textContent = `Status: Key Scanning (Row ${selectedRowIndex + 1})`; playSound("row_select");
                         }
-                    } else if (currentScanMode === SCANNING_MODE_KEY) {
+                    } else if (currentScanMode === SCANNING_MODE_KEY) { 
                         if (selectedRowIndex !== -1 && keyboardRows[selectedRowIndex]?.[currentKeyScanIndexInRow]) {
                             const keyInfo = keyboardRows[selectedRowIndex][currentKeyScanIndexInRow];
                             const char = keyInfo.char;
-                            playSound("key_action");
                             let wordToLearn = null;
 
                             if (isOfferingKeyScanCancel && char === CANCEL_KEY_CHAR) {
-                                resetToRowScan();
+                                playSound("key_action"); resetAndDisplayMainKeyboard();
                             } else {
                                 isOfferingKeyScanCancel = false;
-                                if (char === BACKSPACE_KEY_CHAR) { typedText = typedText.slice(0, -1); currentSuggestionObjects = []; displaySuggestions(); resetToRowScan(); }
-                                else if (char === SPACE_KEY_CHAR) {
-                                    const w = typedText.trim().split(/\s+/); if (w.length > 0 && w[w.length-1]) wordToLearn = w[w.length-1];
-                                    typedText += " "; currentSuggestionObjects = []; displaySuggestions(); resetToRowScan();
+                                if (char === NUM_KEY_CHAR) {
+                                    playSound("special_key_select");
+                                    displaySpecialKeyboard(NUMBERS_LAYOUT_CONFIG);
+                                    currentScanMode = SCANNING_MODE_SPECIAL_ROW;
+                                    statusText.textContent = "Status: Number Input";
+                                } else if (char === PUNC_KEY_CHAR) {
+                                    playSound("special_key_select");
+                                    displaySpecialKeyboard(PUNCTUATION_LAYOUT_CONFIG);
+                                    currentScanMode = SCANNING_MODE_SPECIAL_ROW;
+                                    statusText.textContent = "Status: Punctuation Input";
+                                } else { 
+                                    playSound("key_action");
+                                    if (char === BACKSPACE_KEY_CHAR) { typedText = typedText.slice(0, -1); }
+                                    else if (char === SPACE_KEY_CHAR) { const w = typedText.trim().split(/\s+/); if (w.length > 0 && w[w.length-1]) wordToLearn = w[w.length-1]; typedText += " "; }
+                                    else if (char === SEARCH_KEY_CHAR) { if (typedText) window.open(`https://www.google.com/search?q=${encodeURIComponent(typedText)}`, '_blank');}
+                                    else if (char === DELETE_KEY_CHAR) { const ls = typedText.trimEnd().lastIndexOf(' '); typedText = (ls !== -1) ? typedText.substring(0, ls + 1) : "";}
+                                    else if (char === SUGGEST_KEY_CHAR) {
+                                        activeSuggestionListForScanning = [...currentSuggestionObjects];
+                                        activeSuggestionListForScanning.push({text: SUGGESTION_SKIP_TEXT, source: 'system'});
+                                        currentScanMode = SCANNING_MODE_SUGGESTION; currentSuggestionIndex = 0;
+                                        statusText.textContent = "Status: Suggestion Scanning"; displaySuggestions();
+                                    } else if (char !== CANCEL_KEY_CHAR) { 
+                                        typedText += char;
+                                    }
+
+                                    if (char !== SUGGEST_KEY_CHAR) { 
+                                       if (char === SPACE_KEY_CHAR || char === BACKSPACE_KEY_CHAR || char === DELETE_KEY_CHAR || (char !== CANCEL_KEY_CHAR && char !== SEARCH_KEY_CHAR) ) {
+                                            const prefix = typedText.match(/([^\s]+)$/)?.[0] || ""; 
+                                            getCombinedSuggestions(prefix).then(suggestions => {
+                                                currentSuggestionObjects = suggestions; displaySuggestions();
+                                            }).catch(err => { currentSuggestionObjects = []; displaySuggestions();});
+                                        } else { 
+                                            currentSuggestionObjects = []; displaySuggestions();
+                                        }
+                                        resetAndDisplayMainKeyboard(); 
+                                    }
+                                    if(wordToLearn) learnWord(wordToLearn);
+                                    typedTextArea.textContent = typedText;
+                                    if (char !== SUGGEST_KEY_CHAR) statusText.textContent = `Action: ${keyInfo.element.textContent}`;
                                 }
-                                else if (char === SEARCH_KEY_CHAR) { if (typedText) window.open(`https://www.google.com/search?q=${encodeURIComponent(typedText)}`, '_blank'); currentSuggestionObjects = []; displaySuggestions(); resetToRowScan();}
-                                else if (char === CANCEL_KEY_CHAR) { currentSuggestionObjects = []; displaySuggestions(); resetToRowScan(); }
-                                else if (char === DELETE_KEY_CHAR) { const ls = typedText.trimEnd().lastIndexOf(' '); typedText = (ls !== -1) ? typedText.substring(0, ls + 1) : ""; currentSuggestionObjects = []; displaySuggestions(); resetToRowScan();}
-                                else if (char === SUGGEST_KEY_CHAR) {
-                                    activeSuggestionListForScanning = [...currentSuggestionObjects];
-                                    activeSuggestionListForScanning.push({text: SUGGESTION_SKIP_TEXT, source: 'system'});
-                                    currentScanMode = SCANNING_MODE_SUGGESTION; currentSuggestionIndex = 0;
-                                    statusText.textContent = "Status: Suggestion Scanning";
-                                    displaySuggestions();
-                                }
-                                else { // Regular character
-                                    typedText += char;
-                                    const prefix = typedText.match(/([^\s]+)$/)?.[0];
-                                    if (prefix) {
-                                        getCombinedSuggestions(prefix).then(suggestions => {
-                                            currentSuggestionObjects = suggestions; displaySuggestions();
-                                        }).catch(err => { currentSuggestionObjects = []; displaySuggestions(); });
-                                    } else { currentSuggestionObjects = []; displaySuggestions(); }
-                                    resetToRowScan();
-                                }
-                                if(wordToLearn) learnWord(wordToLearn);
-                                typedTextArea.textContent = typedText;
-                                statusText.textContent = `Action: ${keyInfo.element.textContent}`;
                             }
-                        } else { resetToRowScan(); }
+                        } else { resetAndDisplayMainKeyboard(); }
                     } else if (currentScanMode === SCANNING_MODE_SUGGESTION) {
-                         if (activeSuggestionListForScanning?.[currentSuggestionIndex]) {
+                        if (activeSuggestionListForScanning?.[currentSuggestionIndex]) {
                             const item = activeSuggestionListForScanning[currentSuggestionIndex].text; playSound("suggestion_select");
                             if (item !== SUGGESTION_SKIP_TEXT) {
                                 const ls = typedText.lastIndexOf(' '); typedText = (ls === -1 ? "" : typedText.substring(0, ls + 1)) + item + " ";
                                 typedTextArea.textContent = typedText; learnWord(item);
                             } statusText.textContent = `Suggestion: ${item}`;
-                            currentSuggestionObjects = [];
-                            resetToRowScan();
-                        } else { resetToRowScan(); }
+                            currentSuggestionObjects = []; 
+                            resetAndDisplayMainKeyboard(); 
+                        } else { resetAndDisplayMainKeyboard(); }
+                    } else if (currentScanMode === SCANNING_MODE_SPECIAL_ROW) {
+                        if (specialKeyboardRowElements[currentKeyScanIndexInRow]) {
+                            const keyInfo = specialKeyboardRowElements[currentKeyScanIndexInRow];
+                            const char = keyInfo.char;
+                            playSound("special_char_select");
+                            if (char === CANCEL_KEY_CHAR) {
+                                // Do nothing
+                            } else {
+                                typedText += char;
+                                typedTextArea.textContent = typedText;
+                                const prefix = typedText.match(/([^\s]+)$/)?.[0] || "";
+                                getCombinedSuggestions(prefix).then(suggestions => {
+                                    currentSuggestionObjects = suggestions; 
+                                }).catch(err => { currentSuggestionObjects = [];});
+                            }
+                            resetAndDisplayMainKeyboard(); 
+                        } else { resetAndDisplayMainKeyboard(); }
                     }
-                }
-                else if (!isTraversalPausedForSelectionConsideration && (currentTime - lastTraversalTime) / 1000 >= TRAVERSAL_INTERVAL) {
+                } else if (!isTraversalPausedForSelectionConsideration && (currentTime - lastTraversalTime) / 1000 >= TRAVERSAL_INTERVAL) { 
                     if (currentScanMode === SCANNING_MODE_ROW) {
                         currentRowScanIndex = (currentRowScanIndex + 1) % keyboardRows.length;
                         statusText.textContent = "Status: Row Scanning";
@@ -920,37 +998,44 @@
                             currentKeyScanIndexInRow++;
                             if (selectedRowIndex !== -1 && keyboardRows[selectedRowIndex] && currentKeyScanIndexInRow >= keyboardRows[selectedRowIndex].length) {
                                 isOfferingKeyScanCancel = true; originalSelectedRowForKeyScan = selectedRowIndex;
-                                selectedRowIndex = keyboardRows.length - 1; // Last row (special keys)
+                                selectedRowIndex = keyboardRows.length - 1; 
                                 const cancelKeyObj = keyboardRows[selectedRowIndex].find(key => key.char === CANCEL_KEY_CHAR);
                                 currentKeyScanIndexInRow = cancelKeyObj ? keyboardRows[selectedRowIndex].indexOf(cancelKeyObj) : 0;
                                 statusText.textContent = "Status: Cancel Key Scan?";
-                            } else if (selectedRowIndex == -1 || !keyboardRows[selectedRowIndex]) { resetToRowScan();
+                            } else if (selectedRowIndex == -1 || !keyboardRows[selectedRowIndex]) { resetAndDisplayMainKeyboard();
                             } else { statusText.textContent = `Status: Key Scanning (Row ${selectedRowIndex + 1})`; }
                         }
                     } else if (currentScanMode === SCANNING_MODE_SUGGESTION) {
                         if (activeSuggestionListForScanning?.length > 0) currentSuggestionIndex = (currentSuggestionIndex + 1) % activeSuggestionListForScanning.length;
-                        else resetToRowScan();
+                        else { resetAndDisplayMainKeyboard(); } 
                         statusText.textContent = "Status: Suggestion Scanning";
+                    } else if (currentScanMode === SCANNING_MODE_SPECIAL_ROW) {
+                        currentKeyScanIndexInRow = (currentKeyScanIndexInRow + 1) % specialKeyboardRowElements.length;
+                        statusText.textContent = `Status: ${activeSpecialKeyboardType === 'number' ? 'Number' : 'Punctuation'} Input`;
                     }
                     lastTraversalTime = currentTime;
                 } else if (isTraversalPausedForSelectionConsideration && !statusText.textContent.includes("Evaluating")) {
                     statusText.textContent = "Status: Evaluating Blink...";
-                } else if (!isTraversalPausedForSelectionConsideration && !isOfferingKeyScanCancel && !statusText.textContent.startsWith("Status: Initializing") && !statusText.textContent.startsWith("Action:") && !statusText.textContent.startsWith("Suggestion:")) {
-                     if (currentScanMode === SCANNING_MODE_ROW) statusText.textContent = "Status: Row Scanning";
-                     else if (currentScanMode === SCANNING_MODE_KEY && selectedRowIndex !== -1) statusText.textContent = `Status: Key Scanning (Row ${selectedRowIndex + 1})`;
-                     else if (currentScanMode === SCANNING_MODE_SUGGESTION && activeSuggestionListForScanning?.length > 0) statusText.textContent = "Status: Suggestion Scanning";
-                     else if (currentScanMode === SCANNING_MODE_SUGGESTION ) statusText.textContent = "Status: Row Scanning"; // Fallback if suggestions empty
+                } else if (!isCalibrating && !isTraversalPausedForSelectionConsideration && !isOfferingKeyScanCancel &&
+                           !statusText.textContent.startsWith("Status: Initializing") &&
+                           !statusText.textContent.startsWith("Action:") &&
+                           !statusText.textContent.startsWith("Suggestion:")) {
+                    if (currentScanMode === SCANNING_MODE_ROW) statusText.textContent = "Status: Row Scanning";
+                    else if (currentScanMode === SCANNING_MODE_KEY && selectedRowIndex !== -1) statusText.textContent = `Status: Key Scanning (Row ${selectedRowIndex + 1})`;
+                    else if (currentScanMode === SCANNING_MODE_SUGGESTION && activeSuggestionListForScanning?.length > 0) statusText.textContent = "Status: Suggestion Scanning";
+                    else if (currentScanMode === SCANNING_MODE_SPECIAL_ROW) statusText.textContent = `Status: ${activeSpecialKeyboardType === 'number' ? 'Number' : 'Punctuation'} Input`;
                 }
             }
-
             updateKeyboardHighlight();
             canvasCtx.restore();
         }
 
         // --- Application Initialization ---
         async function startApp() {
-            stopAutoStartTimer(); // Stop countdown if manually started or auto-triggered
-            currentSuggestionIndex = 0;
+            stopAutoStartTimer();
+            isAutoStartPaused = false; 
+
+            currentSuggestionIndex = 0; 
             await loadWordLists();
             await loadCharMappings();
             await loadTFModel();
@@ -967,57 +1052,49 @@
                     canvasElement.width = videoElement.videoWidth;
                     canvasElement.height = videoElement.videoHeight;
                 };
-                if (typeof Camera === "undefined") throw new Error("Camera utility not loaded from MediaPipe."); // More specific error
+                if (typeof Camera === "undefined") throw new Error("Camera utility not loaded from MediaPipe.");
                 camera = new Camera(videoElement, {
-                    onFrame: async () => {
-                        if (videoElement.readyState >= 2) { // Ensure video is ready
-                           await faceMesh.send({image: videoElement});
-                        }
-                    },
-                    width: FRAME_WIDTH,
-                    height: FRAME_HEIGHT
+                    onFrame: async () => { if (videoElement.readyState >= 2) { await faceMesh.send({image: videoElement}); } },
+                    width: FRAME_WIDTH, height: FRAME_HEIGHT
                 });
                 await camera.start();
-
-                // Ensure canvas dimensions are set after camera starts and video dimensions are known
                 if (videoElement.videoWidth > 0 && (canvasElement.width !== videoElement.videoWidth || canvasElement.height !== videoElement.videoHeight) ) {
-                    canvasElement.width = videoElement.videoWidth;
-                    canvasElement.height = videoElement.videoHeight;
+                    canvasElement.width = videoElement.videoWidth; canvasElement.height = videoElement.videoHeight;
                 }
 
-                // Start Calibration
                 isCalibrating = true;
-                calibrationBlinksNeeded = 3;
-                calibrationEarValues = [];
-                calibrationState = "idle";
-                calibrationFramesLowCount = 0;
-                calibrationFramesHighCount = 0;
-                currentCalibrationBlinkMinEar = 1.0;
+                calibrationBlinksNeeded = 3; calibrationEarValues = []; calibrationState = "idle";
+                calibrationFramesLowCount = 0; calibrationFramesHighCount = 0; currentCalibrationBlinkMinEar = 1.0;
                 loadingMessage.textContent = "Camera started. Calibrating...";
                 calibrationInstructions.textContent = "Please look at the camera and blink SLOWLY three times when your eyes feel normal.";
                 calibrationInstructions.style.display = 'block';
                 statusText.textContent = "Status: Calibrating";
-                // Keyboard generation and main scanning will start after calibration completes in onResults/handleCalibration
 
             } catch (err) {
                 console.error("Error during startApp:", err);
-                loadingMessage.textContent = `Error: ${err.message}. Check console, permissions & ensure MediaPipe scripts are loaded.`;
-                statusText.textContent = "Status: Error";
-                modelStatusText.textContent = "Model: Error";
-                startButton.disabled = false; startButton.textContent = "Start Camera";
+                loadingMessage.textContent = `Error: ${err.message}. Check console & permissions.`;
+                statusText.textContent = "Status: Error"; modelStatusText.textContent = "Model: Error";
+                startButton.disabled = false; startButton.textContent = "Start Camera"; 
+                isAutoStartPaused = false; 
                 calibrationInstructions.style.display = 'none';
             }
         }
 
         // Event Listeners
         startButton.addEventListener('click', () => {
-            stopAutoStartTimer(); // Stop countdown if button is clicked manually
-            startApp();
+            if (isAutoStartActive) { 
+                stopAutoStartTimer();
+                isAutoStartPaused = true;
+                startButton.textContent = "Start Camera (Paused)";
+                loadingMessage.textContent = "Auto-start paused. Click button to start manually.";
+            } else { 
+                isAutoStartPaused = false; 
+                startApp(); 
+            }
         });
 
-        // Initialize auto-start on page load
         window.addEventListener('load', () => {
-            startAutoStartTimer();
+            startAutoStartTimer(); 
         });
 
     </script>
