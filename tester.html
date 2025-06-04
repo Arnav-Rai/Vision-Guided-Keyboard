@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Keyboard - User-Triggered Suggestion Scan V6 (Updated Labels)</title>
+    <title>Keyboard - User-Triggered Suggestion Scan V10 (Robust Email)</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
@@ -85,6 +85,12 @@
             color: #e5c07b; 
             text-align: center;
             display: none; 
+        }
+        #emailSetupInstructions {
+            margin-top: 5px;
+            font-size: 0.85em;
+            color: #e5c07b; /* Amber */
+            min-height: 1em;
         }
 
 
@@ -169,16 +175,21 @@
             padding: 0 3px; 
             line-height: 1.2; 
             text-align: center;
-            word-break: keep-all; /* Try to prevent breaking words like "Suggest" */
+            word-break: keep-all; 
         }
+        .key.email-action-key { 
+            width: 150px; 
+            height: 55px;
+            font-size: 0.9em;
+            margin: 10px;
+        }
+
 
         .key.backspace-key {
              width: 55px;
         }
          .key.final-row-key { 
-            width: 86.5px; 
-            /* font-size might need adjustment if "Suggest" or "Search" are too long */
-            /* Example: font-size: 0.7em; if needed */
+            width: 67px; 
          }
          .key.number-key, .key.punctuation-key { 
             font-size: 1.1em; 
@@ -281,6 +292,7 @@
             <button id="startButton">Start Camera</button>
             <p id="loadingMessage">Click 'Start Camera' or wait for auto-start.</p>
             <p id="calibrationInstructions">Please blink slowly three times.</p>
+            <p id="emailSetupInstructions"></p> 
             <p class="status-text" id="statusText">Status: Idle</p>
             <p class="status-text" id="eyeStatus">EAR: N/A</p>
             <p class="status-text" id="modelStatus">Model: Not loaded</p>
@@ -310,6 +322,8 @@
         const startButton = document.getElementById('startButton');
         const loadingMessage = document.getElementById('loadingMessage');
         const calibrationInstructions = document.getElementById('calibrationInstructions');
+        const emailSetupInstructions = document.getElementById('emailSetupInstructions');
+
 
         // --- Configuration ---
         const FRAME_WIDTH = 640;
@@ -319,17 +333,25 @@
         let PERSONALIZED_WORD_LIST = {};
         const DEFAULT_FALLBACK_WORDS = ["HELLO", "WORLD", "YES", "NO", "PLEASE", "THANK", "YOU", "GOOD", "MORNING", "AFTERNOON", "EVENING", "HELP"];
         const MAX_SUGGESTIONS = 3;
-        const SUGGESTION_SKIP_TEXT = "[Skip]"; // Keeping brackets for this system message
+        const SUGGESTION_SKIP_TEXT = "[Skip]"; 
 
-        const SUGGEST_KEY_CHAR = "Suggest"; // Updated
-        const SEARCH_KEY_CHAR = "Search";   // Updated
+        const SUGGEST_KEY_CHAR = "Suggest"; 
+        const SEARCH_KEY_CHAR = "Search";  
+        const MAIL_KEY_CHAR = "Mail";     
         const BACKSPACE_KEY_CHAR = "<-";
-        const DELETE_KEY_CHAR = "DEL";      // Already no brackets
-        const CANCEL_KEY_CHAR = "CNCL";     // Already no brackets
+        const DELETE_KEY_CHAR = "DEL";      
+        const CANCEL_KEY_CHAR = "CNCL";     
         const SPACE_KEY_CHAR = " ";
         const SPACE_KEY_DISPLAY_TEXT = "SPACE";
-        const NUM_KEY_CHAR = "Num";         // Updated
-        const PUNC_KEY_CHAR = "[,.]";       // Brackets retained as requested
+        const NUM_KEY_CHAR = "Num";       
+        const PUNC_KEY_CHAR = "[,.]";      
+
+        // Email Setup Keys
+        const EMAIL_NEXT_FIELD_KEY = "Next";
+        const EMAIL_SEND_KEY = "Send Mail";
+        const EMAIL_CANCEL_SETUP_KEY = "Cancel Mail";
+        const EMAIL_DOMAIN_SUFFIX = "@gmail.com";
+
 
         const NUMBERS_LAYOUT_CONFIG = { chars: "1234567890".split(''), type: 'number' };
         const PUNCTUATION_LAYOUT_CONFIG = { chars: ",.@?!'".split(''), type: 'punctuation' };
@@ -337,7 +359,7 @@
 
         const KEYS_PER_ALPHABET_ROW = 6;
         const NUM_ALPHABET_ROWS = 4; 
-        const SPECIAL_KEYS_FINAL_ROW_CHARS = [SUGGEST_KEY_CHAR, SEARCH_KEY_CHAR, DELETE_KEY_CHAR, CANCEL_KEY_CHAR];
+        const DEFAULT_SPECIAL_KEYS_FINAL_ROW_CHARS = [SUGGEST_KEY_CHAR, SEARCH_KEY_CHAR, MAIL_KEY_CHAR, DELETE_KEY_CHAR, CANCEL_KEY_CHAR];
 
 
         const TRAVERSAL_INTERVAL = 0.8; 
@@ -357,7 +379,7 @@
         let selectedRowIndex = -1; 
         let originalSelectedRowForKeyScan = -1;
         let lastTraversalTime = performance.now();
-        let typedText = "";
+        let typedText = ""; 
         let isPausedAfterSelection = false;
         let lastSelectionTime = 0;
         let initialDelayPassed = false;
@@ -397,20 +419,28 @@
         let isAutoStartPaused = false; 
 
 
-        // Special Keyboard State
+        // Special Keyboard State (Num/Punc)
         let activeSpecialKeyboardType = null; 
         let specialKeyboardRowElements = []; 
+
+        // Email Setup State
+        let isSettingUpEmail = false;
+        let emailSetupPhase = ""; 
+        let senderEmailUsername = ""; 
+        let receiverEmailUsername = ""; 
+        let originalTypedTextBeforeEmail = ""; 
 
         const SCANNING_MODE_ROW = 0;
         const SCANNING_MODE_KEY = 1; 
         const SCANNING_MODE_SUGGESTION = 2;
         const SCANNING_MODE_SPECIAL_ROW = 3; 
+        const SCANNING_MODE_EMAIL_SETUP = 4; 
 
         const LEFT_EYE_INDICES = [362, 385, 387, 263, 373, 380];
         const RIGHT_EYE_INDICES = [33, 160, 158, 133, 153, 144];
 
         // --- Auto-start Camera Logic ---
-        function startAutoStartTimer() {
+        function startAutoStartTimer() { /* ... (implementation unchanged) ... */ 
             if (autoStartTimerId) clearInterval(autoStartTimerId); 
             isAutoStartActive = true;
             isAutoStartPaused = false;
@@ -432,8 +462,7 @@
                 }
             }, AUTO_START_INTERVAL);
         }
-
-        function stopAutoStartTimer() {
+        function stopAutoStartTimer() { /* ... (implementation unchanged) ... */ 
             if (autoStartTimerId) {
                 clearInterval(autoStartTimerId);
                 autoStartTimerId = null;
@@ -527,7 +556,7 @@
 
         // --- Audio & EAR Calculation ---
         function initAudio() { /* ... (implementation unchanged) ... */ 
-            if (!audioCtx && (window.AudioContext || window.webkitAudioContext)) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+             if (!audioCtx && (window.AudioContext || window.webkitAudioContext)) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         }
         function playSound(type = "key_action") { /* ... (implementation unchanged) ... */ 
             if (!audioCtx) return;
@@ -544,6 +573,8 @@
                 else if (type === "suggestion_select") freq = 550;
                 else if (type === "special_key_select") freq = 380; 
                 else if (type === "special_char_select") freq = 480; 
+                else if (type === "email_next") freq = 400;
+                else if (type === "email_send") freq = 700;
                 oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime);
                 oscillator.start(); oscillator.stop(audioCtx.currentTime + 0.15);
             } catch (e) { console.error("Error playing sound:", type, e); }
@@ -562,7 +593,7 @@
         }
 
         // --- Keyboard Layout & Highlighting ---
-        function generateKeyboardLayout() { /* ... (implementation unchanged, uses updated constants) ... */ 
+        function generateKeyboardLayout(customLastRowChars = null) { /* ... (implementation unchanged) ... */ 
             keyboardRows = []; 
             keyboardArea.innerHTML = ''; 
             const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split('');
@@ -587,8 +618,8 @@
             const row4KeyDefinitions = [
                 { char: letters[24], display: letters[24], classList: 'key' }, 
                 { char: letters[25], display: letters[25], classList: 'key' }, 
-                { char: NUM_KEY_CHAR, display: NUM_KEY_CHAR, classList: 'key special-key' }, // Display will be "Num"
-                { char: PUNC_KEY_CHAR, display: PUNC_KEY_CHAR, classList: 'key special-key' }, // Display will be "[,.]"
+                { char: NUM_KEY_CHAR, display: NUM_KEY_CHAR, classList: 'key special-key' },
+                { char: PUNC_KEY_CHAR, display: PUNC_KEY_CHAR, classList: 'key special-key' },
                 { char: SPACE_KEY_CHAR, display: SPACE_KEY_DISPLAY_TEXT, classList: 'key' }, 
                 { char: BACKSPACE_KEY_CHAR, display: BACKSPACE_KEY_CHAR, classList: 'key special-key backspace-key' }
             ];
@@ -600,9 +631,14 @@
 
             const row5Div = document.createElement('div'); row5Div.className = 'keyboard-row'; row5Div.id = `kb-row-${NUM_ALPHABET_ROWS + 1}`;
             let row5Layout = [];
-            SPECIAL_KEYS_FINAL_ROW_CHARS.forEach((char, i) => { // Will use "Suggest", "Search", "DEL", "CNCL"
-                const keyDiv = document.createElement('div'); keyDiv.className = 'key special-key final-row-key'; keyDiv.id = `key-${NUM_ALPHABET_ROWS + 1}-${i}`; keyDiv.textContent = char;
-                row5Div.appendChild(keyDiv); row5Layout.push({ char: char, element: keyDiv, row: NUM_ALPHABET_ROWS + 1, col: i });
+            const finalRowCharsToUse = customLastRowChars || DEFAULT_SPECIAL_KEYS_FINAL_ROW_CHARS;
+            finalRowCharsToUse.forEach((char, i) => {
+                const keyDiv = document.createElement('div'); 
+                keyDiv.className = 'key special-key final-row-key'; 
+                keyDiv.id = `key-${NUM_ALPHABET_ROWS + 1}-${i}`; 
+                keyDiv.textContent = char;
+                row5Div.appendChild(keyDiv); 
+                row5Layout.push({ char: char, element: keyDiv, row: NUM_ALPHABET_ROWS + 1, col: i });
             });
             keyboardRows.push(row5Layout); keyboardArea.appendChild(row5Div);
         }
@@ -636,6 +672,42 @@
             currentKeyScanIndexInRow = 0; 
             updateKeyboardHighlight(); 
         }
+        function displayEmailConfirmScreen() { /* ... (implementation unchanged, uses updated sender/receiverEmailUsernames) ... */ 
+            keyboardArea.innerHTML = ''; 
+            specialKeyboardRowElements = []; 
+            
+            const rowDiv = document.createElement('div');
+            rowDiv.className = 'keyboard-row'; 
+            rowDiv.id = 'kb-email-confirm-row';
+
+            const sendKeyDiv = document.createElement('div');
+            sendKeyDiv.className = 'key special-key email-action-key'; 
+            sendKeyDiv.id = 'key-email-send';
+            sendKeyDiv.textContent = EMAIL_SEND_KEY;
+            rowDiv.appendChild(sendKeyDiv);
+            keyboardRows = [[ 
+                { char: EMAIL_SEND_KEY, element: sendKeyDiv, row: 0, col: 0 }
+            ]];
+
+
+            const cancelKeyDiv = document.createElement('div');
+            cancelKeyDiv.className = 'key special-key email-action-key';
+            cancelKeyDiv.id = 'key-email-cancel-setup';
+            cancelKeyDiv.textContent = EMAIL_CANCEL_SETUP_KEY;
+            rowDiv.appendChild(cancelKeyDiv);
+            keyboardRows[0].push({ char: EMAIL_CANCEL_SETUP_KEY, element: cancelKeyDiv, row: 0, col: 1 });
+
+
+            keyboardArea.appendChild(rowDiv);
+            
+            typedTextArea.innerHTML = `To: ${receiverEmailUsername + EMAIL_DOMAIN_SUFFIX}<br>From: ${senderEmailUsername + EMAIL_DOMAIN_SUFFIX}<br>Subject: Message via Eye Keyboard<br><br>Body:<br>${originalTypedTextBeforeEmail.replace(/\n/g, '<br>')}`;
+
+            currentScanMode = SCANNING_MODE_EMAIL_SETUP; 
+            currentRowScanIndex = 0; 
+            currentKeyScanIndexInRow = 0;
+            lastTraversalTime = performance.now();
+            updateKeyboardHighlight();
+        }
         function updateKeyboardHighlight() { /* ... (implementation unchanged) ... */ 
             document.querySelectorAll('.key.highlighted, .key.selection-pending, .key.cancel-option-pending, .keyboard-row.row-highlighted, .keyboard-row.selection-pending')
                 .forEach(el => el.classList.remove('highlighted', 'selection-pending', 'cancel-option-pending', 'row-highlighted'));
@@ -649,7 +721,7 @@
             let isCancelForMainKeyboard = false; 
 
             if (currentScanMode === SCANNING_MODE_ROW) {
-                if (keyboardRows[currentRowScanIndex]) {
+                if (keyboardRows[currentRowScanIndex]) { 
                     const rowDiv = document.getElementById(`kb-row-${currentRowScanIndex}`);
                     if (rowDiv) rowDiv.classList.add(isTraversalPausedForSelectionConsideration ? 'selection-pending' : 'row-highlighted');
                 }
@@ -670,7 +742,12 @@
                 if (specialKeyboardRowElements[currentKeyScanIndexInRow]) {
                     elementToMark = specialKeyboardRowElements[currentKeyScanIndexInRow].element;
                 }
+            } else if (currentScanMode === SCANNING_MODE_EMAIL_SETUP) { 
+                 if (keyboardRows[0] && keyboardRows[0][currentKeyScanIndexInRow]) { 
+                    elementToMark = keyboardRows[0][currentKeyScanIndexInRow].element;
+                }
             }
+
 
             if (elementToMark) {
                 if (isCancelForMainKeyboard) { 
@@ -728,6 +805,10 @@
         }
         function displaySuggestions() { /* ... (implementation unchanged) ... */ 
             suggestionsArea.innerHTML = '';
+            if (isSettingUpEmail && emailSetupPhase === 'confirm_send') { 
+                updateKeyboardHighlight();
+                return;
+            }
             const listToDisplay = (currentScanMode === SCANNING_MODE_SUGGESTION) ? activeSuggestionListForScanning : currentSuggestionObjects;
             if (!listToDisplay || listToDisplay.length === 0) {
                 suggestionsArea.innerHTML = ''; updateKeyboardHighlight(); return;
@@ -759,10 +840,31 @@
             displaySuggestions(); 
             updateKeyboardHighlight(); 
         }
-        function resetAndDisplayMainKeyboard() { /* ... (implementation unchanged) ... */ 
+        function resetAndDisplayMainKeyboard(fromEmailProcess = false) { 
+            const wasSettingUpEmail = isSettingUpEmail; 
+
+            isSettingUpEmail = false;
+            emailSetupPhase = "";
+            emailSetupInstructions.textContent = "";
+            if (fromEmailProcess) { 
+                 typedTextArea.textContent = originalTypedTextBeforeEmail;
+                 typedText = originalTypedTextBeforeEmail; 
+            } else if (!wasSettingUpEmail && typedText !== originalTypedTextBeforeEmail) {
+                // If not coming from an email process AND text changed, keep current typedText
+                // This handles the case where email was sent, and typedText should be cleared by mailto
+                // or if it was a general reset, typedText is what it was.
+                // If email was sent, originalTypedTextBeforeEmail would have been the body.
+                // This logic might need refinement if typedText is not cleared as expected after mailto.
+            }
+            
+            originalTypedTextBeforeEmail = ""; 
+            senderEmailUsername = "";
+            receiverEmailUsername = "";
+
             activeSpecialKeyboardType = null;
             specialKeyboardRowElements = [];
-            generateKeyboardLayout();    
+            
+            generateKeyboardLayout(); // Always generate default main keyboard here
             resetToRowScan();            
         }
         function handleCalibration(avgEar) { /* ... (implementation unchanged) ... */ 
@@ -842,7 +944,27 @@
             return true; 
         }
 
-        function onResults(results) { /* ... (implementation largely unchanged) ... */ 
+        function startEmailSetup() {
+            isSettingUpEmail = true;
+            emailSetupPhase = "enter_sender";
+            originalTypedTextBeforeEmail = typedText; 
+            typedText = ""; 
+            typedTextArea.textContent = ""; 
+            senderEmailUsername = "";
+            receiverEmailUsername = "";
+            statusText.textContent = "Status: Email Setup";
+            emailSetupInstructions.textContent = `Enter Sender's Gmail Username (before ${EMAIL_DOMAIN_SUFFIX}).`;
+            generateKeyboardLayout([EMAIL_NEXT_FIELD_KEY, BACKSPACE_KEY_CHAR, DELETE_KEY_CHAR, EMAIL_CANCEL_SETUP_KEY]);
+            currentScanMode = SCANNING_MODE_ROW; 
+            currentRowScanIndex = 0; 
+            currentKeyScanIndexInRow = 0;
+            selectedRowIndex = -1;
+            isOfferingKeyScanCancel = false; 
+            updateKeyboardHighlight();
+        }
+
+
+        function onResults(results) { 
             const currentTime = performance.now();
             canvasCtx.save();
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
@@ -863,26 +985,51 @@
                 eyeStatusText.textContent = `EAR: ${avgEar.toFixed(2)}${isTraversalPausedForSelectionConsideration ? ` (Paused - ${eyeClosureFramesCount})` : ""}`;
 
                 if (avgEar < minEarThreshold) {
-                    if (initialDelayPassed && !isPausedAfterSelection) {
+                     if (initialDelayPassed && !isPausedAfterSelection) { 
                         isTraversalPausedForSelectionConsideration = true; eyeClosureFramesCount++;
                     }
-                } else {
+                } else { 
                     if (isTraversalPausedForSelectionConsideration) {
                         if (eyeClosureFramesCount >= SELECTION_BLINK_MIN_FRAMES) {
-                            if (!isPausedAfterSelection && initialDelayPassed) selectionTriggeredThisFrame = true;
+                            if (!isPausedAfterSelection && initialDelayPassed) {
+                                selectionTriggeredThisFrame = true;
+                            }
                         }
                         eyeClosureFramesCount = 0; isTraversalPausedForSelectionConsideration = false;
                     }
                 }
-            } else {
-                if (isCalibrating) { loadingMessage.textContent = "Calibrating: No face detected."; }
-                eyeStatusText.textContent = "EAR: N/A (No face detected)";
-                eyeClosureFramesCount = 0; isTraversalPausedForSelectionConsideration = false;
-                if (currentScanMode === SCANNING_MODE_KEY && isOfferingKeyScanCancel) {
-                    isOfferingKeyScanCancel = false; resetAndDisplayMainKeyboard(); 
-                } else if (currentScanMode === SCANNING_MODE_SPECIAL_ROW) {
-                    resetAndDisplayMainKeyboard();
+            } else { // No face detected
+                if (isCalibrating) {
+                    loadingMessage.textContent = "Calibrating: No face detected.";
                 }
+                eyeStatusText.textContent = "EAR: N/A (No face detected)";
+                eyeClosureFramesCount = 0;
+                isTraversalPausedForSelectionConsideration = false;
+
+                if (currentScanMode === SCANNING_MODE_KEY && isOfferingKeyScanCancel) {
+                    isOfferingKeyScanCancel = false; 
+                    resetAndDisplayMainKeyboard(isSettingUpEmail); 
+                }
+                else if (currentScanMode === SCANNING_MODE_EMAIL_SETUP) { // Face lost on final confirm screen
+                     resetAndDisplayMainKeyboard(true); 
+                }
+                else if (currentScanMode === SCANNING_MODE_SPECIAL_ROW) { // Face lost during Num/Punc
+                    if (isSettingUpEmail) {
+                        // Return to the email input keyboard
+                        generateKeyboardLayout([EMAIL_NEXT_FIELD_KEY, BACKSPACE_KEY_CHAR, DELETE_KEY_CHAR, EMAIL_CANCEL_SETUP_KEY]);
+                        currentScanMode = SCANNING_MODE_ROW; 
+                        currentRowScanIndex = 0; currentKeyScanIndexInRow = 0; selectedRowIndex = -1;
+                        statusText.textContent = "Status: Email Setup (Reacquire Face)";
+                        emailSetupInstructions.textContent = (emailSetupPhase === "enter_sender") ?
+                            `Enter Sender's Gmail Username (before ${EMAIL_DOMAIN_SUFFIX}).` :
+                            `Enter Receiver's Gmail Username (before ${EMAIL_DOMAIN_SUFFIX}).`;
+                        updateKeyboardHighlight();
+                    } else {
+                        resetAndDisplayMainKeyboard(false);
+                    }
+                }
+                // If face is lost during email username input (SCANNING_MODE_ROW or SCANNING_MODE_KEY on email kbd),
+                // do NOT automatically cancel. User must use explicit cancel.
             }
 
             if (isPausedAfterSelection && (currentTime - lastSelectionTime) / 1000 >= POST_SELECTION_PAUSE) {
@@ -898,11 +1045,26 @@
                     lastSelectionTime = currentTime; isPausedAfterSelection = true;
                     isTraversalPausedForSelectionConsideration = false; eyeClosureFramesCount = 0;
 
-                    if (currentScanMode === SCANNING_MODE_ROW) {
+                    if (currentScanMode === SCANNING_MODE_EMAIL_SETUP) { 
+                        const selectedAction = keyboardRows[0][currentKeyScanIndexInRow].char;
+                        if (selectedAction === EMAIL_SEND_KEY) {
+                            playSound("email_send");
+                            const fullSender = senderEmailUsername + EMAIL_DOMAIN_SUFFIX;
+                            const fullReceiver = receiverEmailUsername + EMAIL_DOMAIN_SUFFIX;
+                            const mailtoLink = `mailto:${fullReceiver}?subject=${encodeURIComponent("Message via Eye Keyboard")}&body=${encodeURIComponent(originalTypedTextBeforeEmail + "\n\n(Sender: " + fullSender + ")")}`;
+                            window.open(mailtoLink, '_blank');
+                            statusText.textContent = "Status: Email client opened.";
+                            resetAndDisplayMainKeyboard(false); 
+                        } else if (selectedAction === EMAIL_CANCEL_SETUP_KEY) {
+                            playSound("key_action");
+                            statusText.textContent = "Status: Email cancelled.";
+                            resetAndDisplayMainKeyboard(true); 
+                        }
+                    } else if (currentScanMode === SCANNING_MODE_ROW) {
                         if (keyboardRows[currentRowScanIndex]) {
                             selectedRowIndex = currentRowScanIndex; originalSelectedRowForKeyScan = currentRowScanIndex;
                             currentScanMode = SCANNING_MODE_KEY; currentKeyScanIndexInRow = 0;
-                            isOfferingKeyScanCancel = false;
+                            isOfferingKeyScanCancel = false; 
                             statusText.textContent = `Status: Key Scanning (Row ${selectedRowIndex + 1})`; playSound("row_select");
                         }
                     } else if (currentScanMode === SCANNING_MODE_KEY) { 
@@ -911,10 +1073,12 @@
                             const char = keyInfo.char;
                             let wordToLearn = null;
 
-                            if (isOfferingKeyScanCancel && char === CANCEL_KEY_CHAR) {
-                                playSound("key_action"); resetAndDisplayMainKeyboard();
+                            if (isOfferingKeyScanCancel && char === CANCEL_KEY_CHAR) { 
+                                playSound("key_action"); 
+                                resetAndDisplayMainKeyboard(isSettingUpEmail); 
                             } else {
-                                isOfferingKeyScanCancel = false;
+                                isOfferingKeyScanCancel = false; 
+                                
                                 if (char === NUM_KEY_CHAR) {
                                     playSound("special_key_select");
                                     displaySpecialKeyboard(NUMBERS_LAYOUT_CONFIG);
@@ -925,70 +1089,137 @@
                                     displaySpecialKeyboard(PUNCTUATION_LAYOUT_CONFIG);
                                     currentScanMode = SCANNING_MODE_SPECIAL_ROW;
                                     statusText.textContent = "Status: Punctuation Input";
-                                } else { 
+                                } else if (isSettingUpEmail) { 
                                     playSound("key_action");
-                                    if (char === BACKSPACE_KEY_CHAR) { typedText = typedText.slice(0, -1); }
-                                    else if (char === SPACE_KEY_CHAR) { const w = typedText.trim().split(/\s+/); if (w.length > 0 && w[w.length-1]) wordToLearn = w[w.length-1]; typedText += " "; }
-                                    else if (char === SEARCH_KEY_CHAR) { if (typedText) window.open(`https://www.google.com/search?q=${encodeURIComponent(typedText)}`, '_blank');}
-                                    else if (char === DELETE_KEY_CHAR) { const ls = typedText.trimEnd().lastIndexOf(' '); typedText = (ls !== -1) ? typedText.substring(0, ls + 1) : "";}
-                                    else if (char === SUGGEST_KEY_CHAR) {
-                                        activeSuggestionListForScanning = [...currentSuggestionObjects];
-                                        activeSuggestionListForScanning.push({text: SUGGESTION_SKIP_TEXT, source: 'system'});
-                                        currentScanMode = SCANNING_MODE_SUGGESTION; currentSuggestionIndex = 0;
-                                        statusText.textContent = "Status: Suggestion Scanning"; displaySuggestions();
-                                    } else if (char !== CANCEL_KEY_CHAR) { 
-                                        typedText += char;
-                                    }
-
-                                    if (char !== SUGGEST_KEY_CHAR) { 
-                                       if (char === SPACE_KEY_CHAR || char === BACKSPACE_KEY_CHAR || char === DELETE_KEY_CHAR || (char !== CANCEL_KEY_CHAR && char !== SEARCH_KEY_CHAR) ) {
-                                            const prefix = typedText.match(/([^\s]+)$/)?.[0] || ""; 
-                                            getCombinedSuggestions(prefix).then(suggestions => {
-                                                currentSuggestionObjects = suggestions; displaySuggestions();
-                                            }).catch(err => { currentSuggestionObjects = []; displaySuggestions();});
-                                        } else { 
-                                            currentSuggestionObjects = []; displaySuggestions();
+                                    if (char === EMAIL_NEXT_FIELD_KEY) {
+                                        playSound("email_next");
+                                        if (emailSetupPhase === "enter_sender") {
+                                            senderEmailUsername = typedText; 
+                                            typedText = ""; typedTextArea.textContent = "";
+                                            emailSetupPhase = "enter_receiver";
+                                            emailSetupInstructions.textContent = `Enter Receiver's Gmail Username (before ${EMAIL_DOMAIN_SUFFIX}).`;
+                                            resetToRowScan(); 
+                                        } else if (emailSetupPhase === "enter_receiver") {
+                                            receiverEmailUsername = typedText; 
+                                            typedText = ""; typedTextArea.textContent = ""; 
+                                            emailSetupPhase = "confirm_send";
+                                            emailSetupInstructions.textContent = "Confirm and send?";
+                                            displayEmailConfirmScreen(); 
                                         }
-                                        resetAndDisplayMainKeyboard(); 
+                                    } else if (char === EMAIL_CANCEL_SETUP_KEY) {
+                                        resetAndDisplayMainKeyboard(true);
+                                    } else if (char === BACKSPACE_KEY_CHAR) {
+                                        typedText = typedText.slice(0, -1);
+                                        typedTextArea.textContent = typedText;
+                                        resetToRowScan(); 
+                                    } else if (char === DELETE_KEY_CHAR) {
+                                        const lastSpace = typedText.trimEnd().lastIndexOf(' ');
+                                        typedText = (lastSpace !== -1) ? typedText.substring(0, lastSpace + 1) : "";
+                                        typedTextArea.textContent = typedText;
+                                        resetToRowScan(); 
+                                    } else if (![SUGGEST_KEY_CHAR, MAIL_KEY_CHAR, SEARCH_KEY_CHAR, CANCEL_KEY_CHAR].includes(char)) { 
+                                        typedText += char;
+                                        typedTextArea.textContent = typedText;
+                                        resetToRowScan(); 
                                     }
-                                    if(wordToLearn) learnWord(wordToLearn);
-                                    typedTextArea.textContent = typedText;
-                                    if (char !== SUGGEST_KEY_CHAR) statusText.textContent = `Action: ${keyInfo.element.textContent}`;
+                                } else { // Normal key handling (not in email setup, and not Num/Punc)
+                                    if (char === MAIL_KEY_CHAR) {
+                                        playSound("special_key_select");
+                                        startEmailSetup();
+                                    } else if (char === SEARCH_KEY_CHAR) {
+                                        playSound("key_action");
+                                        if (typedText) window.open(`https://www.google.com/search?q=${encodeURIComponent(typedText)}`, '_blank');
+                                        currentSuggestionObjects = []; displaySuggestions();
+                                        resetAndDisplayMainKeyboard();
+                                    } else { 
+                                        playSound("key_action");
+                                        if (char === BACKSPACE_KEY_CHAR) { typedText = typedText.slice(0, -1); }
+                                        else if (char === SPACE_KEY_CHAR) { const w = typedText.trim().split(/\s+/); if (w.length > 0 && w[w.length-1]) wordToLearn = w[w.length-1]; typedText += " "; }
+                                        else if (char === DELETE_KEY_CHAR) { const ls = typedText.trimEnd().lastIndexOf(' '); typedText = (ls !== -1) ? typedText.substring(0, ls + 1) : "";}
+                                        else if (char === SUGGEST_KEY_CHAR) {
+                                            activeSuggestionListForScanning = [...currentSuggestionObjects];
+                                            activeSuggestionListForScanning.push({text: SUGGESTION_SKIP_TEXT, source: 'system'});
+                                            currentScanMode = SCANNING_MODE_SUGGESTION; currentSuggestionIndex = 0;
+                                            statusText.textContent = "Status: Suggestion Scanning"; displaySuggestions();
+                                        } else if (char !== CANCEL_KEY_CHAR) { 
+                                            typedText += char;
+                                        }
+
+                                        if (char !== SUGGEST_KEY_CHAR && char !== MAIL_KEY_CHAR && char !== NUM_KEY_CHAR && char !== PUNC_KEY_CHAR && char !== SEARCH_KEY_CHAR) { 
+                                           if (char === SPACE_KEY_CHAR || char === BACKSPACE_KEY_CHAR || char === DELETE_KEY_CHAR || (char !== CANCEL_KEY_CHAR) ) {
+                                                const prefix = typedText.match(/([^\s]+)$/)?.[0] || ""; 
+                                                getCombinedSuggestions(prefix).then(suggestions => {
+                                                    currentSuggestionObjects = suggestions; displaySuggestions();
+                                                }).catch(err => { currentSuggestionObjects = []; displaySuggestions();});
+                                            } else { 
+                                                currentSuggestionObjects = []; displaySuggestions();
+                                            }
+                                            resetAndDisplayMainKeyboard(); 
+                                        }
+                                        if(wordToLearn) learnWord(wordToLearn);
+                                        typedTextArea.textContent = typedText;
+                                        if (char !== SUGGEST_KEY_CHAR && char !== MAIL_KEY_CHAR && char !== NUM_KEY_CHAR && char !== PUNC_KEY_CHAR && char !== SEARCH_KEY_CHAR) statusText.textContent = `Action: ${keyInfo.element.textContent}`;
+                                    }
                                 }
                             }
-                        } else { resetAndDisplayMainKeyboard(); }
+                        } else { resetAndDisplayMainKeyboard(isSettingUpEmail); }
                     } else if (currentScanMode === SCANNING_MODE_SUGGESTION) {
                         if (activeSuggestionListForScanning?.[currentSuggestionIndex]) {
                             const item = activeSuggestionListForScanning[currentSuggestionIndex].text; playSound("suggestion_select");
                             if (item !== SUGGESTION_SKIP_TEXT) {
-                                const ls = typedText.lastIndexOf(' '); typedText = (ls === -1 ? "" : typedText.substring(0, ls + 1)) + item + " ";
-                                typedTextArea.textContent = typedText; learnWord(item);
-                            } statusText.textContent = `Suggestion: ${item}`;
+                                const ls = typedText.lastIndexOf(' '); 
+                                const baseText = isSettingUpEmail ? typedText : (ls === -1 ? "" : typedText.substring(0, ls + 1));
+                                typedText = baseText + item + (isSettingUpEmail ? "" : " "); 
+
+                                typedTextArea.textContent = typedText; 
+                                if (!isSettingUpEmail) learnWord(item);
+                            } 
+                            statusText.textContent = `Suggestion: ${item}`;
                             currentSuggestionObjects = []; 
-                            resetAndDisplayMainKeyboard(); 
-                        } else { resetAndDisplayMainKeyboard(); }
-                    } else if (currentScanMode === SCANNING_MODE_SPECIAL_ROW) {
+                            if (isSettingUpEmail) {
+                                generateKeyboardLayout([EMAIL_NEXT_FIELD_KEY, BACKSPACE_KEY_CHAR, DELETE_KEY_CHAR, EMAIL_CANCEL_SETUP_KEY]);
+                                resetToRowScan(); 
+                            } else {
+                                resetAndDisplayMainKeyboard(); 
+                            }
+                        } else { resetAndDisplayMainKeyboard(isSettingUpEmail); }
+                    } else if (currentScanMode === SCANNING_MODE_SPECIAL_ROW) { 
                         if (specialKeyboardRowElements[currentKeyScanIndexInRow]) {
                             const keyInfo = specialKeyboardRowElements[currentKeyScanIndexInRow];
                             const char = keyInfo.char;
                             playSound("special_char_select");
                             if (char === CANCEL_KEY_CHAR) {
-                                // Do nothing
+                                // Handled by reset logic below
                             } else {
-                                typedText += char;
+                                typedText += char; 
                                 typedTextArea.textContent = typedText;
-                                const prefix = typedText.match(/([^\s]+)$/)?.[0] || "";
-                                getCombinedSuggestions(prefix).then(suggestions => {
-                                    currentSuggestionObjects = suggestions; 
-                                }).catch(err => { currentSuggestionObjects = [];});
                             }
-                            resetAndDisplayMainKeyboard(); 
-                        } else { resetAndDisplayMainKeyboard(); }
+                            
+                            if (isSettingUpEmail) { 
+                                generateKeyboardLayout([EMAIL_NEXT_FIELD_KEY, BACKSPACE_KEY_CHAR, DELETE_KEY_CHAR, EMAIL_CANCEL_SETUP_KEY]);
+                                resetToRowScan(); 
+                                statusText.textContent = "Status: Email Setup"; // Keep email status
+                                emailSetupInstructions.textContent = (emailSetupPhase === "enter_sender") ?
+                                    `Enter Sender's Gmail Username (before ${EMAIL_DOMAIN_SUFFIX}).` :
+                                    `Enter Receiver's Gmail Username (before ${EMAIL_DOMAIN_SUFFIX}).`;
+                            } else { 
+                                resetAndDisplayMainKeyboard(); 
+                                if (char !== CANCEL_KEY_CHAR) { 
+                                    const prefix = typedText.match(/([^\s]+)$/)?.[0] || "";
+                                    getCombinedSuggestions(prefix).then(suggestions => {
+                                        currentSuggestionObjects = suggestions; displaySuggestions();
+                                    }).catch(err => { currentSuggestionObjects = []; displaySuggestions();});
+                                }
+                            }
+                        } else { resetAndDisplayMainKeyboard(isSettingUpEmail); }
                     }
                 } else if (!isTraversalPausedForSelectionConsideration && (currentTime - lastTraversalTime) / 1000 >= TRAVERSAL_INTERVAL) { 
-                    if (currentScanMode === SCANNING_MODE_ROW) {
+                    if (currentScanMode === SCANNING_MODE_EMAIL_SETUP) { 
+                        currentKeyScanIndexInRow = (currentKeyScanIndexInRow + 1) % keyboardRows[0].length; 
+                        statusText.textContent = "Status: Confirm Email";
+                    } else if (currentScanMode === SCANNING_MODE_ROW) {
                         currentRowScanIndex = (currentRowScanIndex + 1) % keyboardRows.length;
-                        statusText.textContent = "Status: Row Scanning";
+                        statusText.textContent = isSettingUpEmail ? "Status: Email Setup" : "Status: Row Scanning";
                     } else if (currentScanMode === SCANNING_MODE_KEY) {
                         if (isOfferingKeyScanCancel) {
                             isOfferingKeyScanCancel = false; selectedRowIndex = originalSelectedRowForKeyScan;
@@ -999,15 +1230,16 @@
                             if (selectedRowIndex !== -1 && keyboardRows[selectedRowIndex] && currentKeyScanIndexInRow >= keyboardRows[selectedRowIndex].length) {
                                 isOfferingKeyScanCancel = true; originalSelectedRowForKeyScan = selectedRowIndex;
                                 selectedRowIndex = keyboardRows.length - 1; 
-                                const cancelKeyObj = keyboardRows[selectedRowIndex].find(key => key.char === CANCEL_KEY_CHAR);
+                                const cancelKeyCharToFind = isSettingUpEmail ? EMAIL_CANCEL_SETUP_KEY : CANCEL_KEY_CHAR;
+                                const cancelKeyObj = keyboardRows[selectedRowIndex].find(key => key.char === cancelKeyCharToFind);
                                 currentKeyScanIndexInRow = cancelKeyObj ? keyboardRows[selectedRowIndex].indexOf(cancelKeyObj) : 0;
-                                statusText.textContent = "Status: Cancel Key Scan?";
-                            } else if (selectedRowIndex == -1 || !keyboardRows[selectedRowIndex]) { resetAndDisplayMainKeyboard();
+                                statusText.textContent = "Status: Cancel Option?";
+                            } else if (selectedRowIndex == -1 || !keyboardRows[selectedRowIndex]) { resetAndDisplayMainKeyboard(isSettingUpEmail);
                             } else { statusText.textContent = `Status: Key Scanning (Row ${selectedRowIndex + 1})`; }
                         }
                     } else if (currentScanMode === SCANNING_MODE_SUGGESTION) {
                         if (activeSuggestionListForScanning?.length > 0) currentSuggestionIndex = (currentSuggestionIndex + 1) % activeSuggestionListForScanning.length;
-                        else { resetAndDisplayMainKeyboard(); } 
+                        else { resetAndDisplayMainKeyboard(isSettingUpEmail); } 
                         statusText.textContent = "Status: Suggestion Scanning";
                     } else if (currentScanMode === SCANNING_MODE_SPECIAL_ROW) {
                         currentKeyScanIndexInRow = (currentKeyScanIndexInRow + 1) % specialKeyboardRowElements.length;
@@ -1019,8 +1251,9 @@
                 } else if (!isCalibrating && !isTraversalPausedForSelectionConsideration && !isOfferingKeyScanCancel &&
                            !statusText.textContent.startsWith("Status: Initializing") &&
                            !statusText.textContent.startsWith("Action:") &&
-                           !statusText.textContent.startsWith("Suggestion:")) {
-                    if (currentScanMode === SCANNING_MODE_ROW) statusText.textContent = "Status: Row Scanning";
+                           !statusText.textContent.startsWith("Suggestion:") &&
+                           currentScanMode !== SCANNING_MODE_EMAIL_SETUP) { 
+                    if (currentScanMode === SCANNING_MODE_ROW) statusText.textContent = isSettingUpEmail ? "Status: Email Setup" : "Status: Row Scanning";
                     else if (currentScanMode === SCANNING_MODE_KEY && selectedRowIndex !== -1) statusText.textContent = `Status: Key Scanning (Row ${selectedRowIndex + 1})`;
                     else if (currentScanMode === SCANNING_MODE_SUGGESTION && activeSuggestionListForScanning?.length > 0) statusText.textContent = "Status: Suggestion Scanning";
                     else if (currentScanMode === SCANNING_MODE_SPECIAL_ROW) statusText.textContent = `Status: ${activeSpecialKeyboardType === 'number' ? 'Number' : 'Punctuation'} Input`;
@@ -1031,7 +1264,7 @@
         }
 
         // --- Application Initialization ---
-        async function startApp() {
+        async function startApp() { /* ... (implementation unchanged) ... */ 
             stopAutoStartTimer();
             isAutoStartPaused = false; 
 
@@ -1043,6 +1276,8 @@
             startButton.disabled = true; startButton.textContent = "Loading...";
             loadingMessage.textContent = "Initializing MediaPipe..."; loadingMessage.style.display = 'block';
             calibrationInstructions.style.display = 'none';
+            emailSetupInstructions.textContent = "";
+
 
             try {
                 faceMesh = new FaceMesh({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
