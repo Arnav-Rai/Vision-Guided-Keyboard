@@ -57,6 +57,15 @@
             to { transform: rotate(360deg); }
         }
 
+        @keyframes pulse-glow {
+            0%, 100% {
+                box-shadow: 0 0 10px rgba(245, 158, 11, 0.4), 0 0 20px rgba(245, 158, 11, 0.2);
+            }
+            50% {
+                box-shadow: 0 0 20px rgba(251, 191, 36, 0.7), 0 0 35px rgba(251, 191, 36, 0.4);
+            }
+        }
+
         /* 1. Full Viewport Layout & Base Styling */
         body {
             font-family: var(--font-family-sans);
@@ -306,18 +315,22 @@
             transform: scale(1.05);
             box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
         }
+
         .key.selection-pending { 
             background-color: var(--secondary-accent-color);
             color: var(--text-dark-color);
             border: 2px solid #FBBF24; 
             transform: scale(1.1);
-            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+            animation: pulse-glow 1.5s infinite ease-in-out;
         }
-         .keyboard-row.selection-pending .key { 
+
+        .keyboard-row.selection-pending .key { 
             background-color: var(--secondary-accent-color) !important; 
             color: var(--text-dark-color) !important;
             border: 2px solid #FBBF24 !important;
+            animation: pulse-glow 1.5s infinite ease-in-out;
         }
+
         .key.cancel-option-pending { 
             background-color: var(--error-color) !important; 
             color: white !important;
@@ -474,13 +487,13 @@
         const MAX_SUGGESTIONS = 3;
         const SUGGESTION_SKIP_TEXT = "[Skip]"; 
 
-        // --- NEW: Special Key Characters and SVG Icons ---
+        // --- Special Key Characters and SVG Icons ---
         const SUGGEST_KEY_CHAR = "Suggest"; 
         const SEARCH_KEY_CHAR = "Search";  
         const MAIL_KEY_CHAR = "Mail";     
-        const BACKSPACE_KEY_CHAR = "Backspace"; // Changed from "<-"
-        const DELETE_KEY_CHAR = "Delete"; // Changed from "DEL"
-        const CANCEL_KEY_CHAR = "Cancel"; // Changed from "CNCL"
+        const BACKSPACE_KEY_CHAR = "Backspace";
+        const DELETE_KEY_CHAR = "Delete";
+        const CANCEL_KEY_CHAR = "Cancel";
         const SPACE_KEY_CHAR = " ";
         const SPACE_KEY_DISPLAY_TEXT = "SPACE";
         const NUM_KEY_CHAR = "Num";       
@@ -925,9 +938,15 @@
 
         function updateKeyboardHighlight() { 
             document.querySelectorAll('.key.highlighted, .key.selection-pending, .key.cancel-option-pending, .keyboard-row.row-highlighted, .keyboard-row.selection-pending')
-                .forEach(el => el.classList.remove('highlighted', 'selection-pending', 'cancel-option-pending', 'row-highlighted'));
+                .forEach(el => {
+                    el.classList.remove('highlighted', 'selection-pending', 'cancel-option-pending', 'row-highlighted');
+                    el.style.animation = 'none'; // Stop animation
+                });
             suggestionsArea.querySelectorAll('.suggestion.highlighted, .suggestion.selection-pending')
-                .forEach(sugg => sugg.classList.remove('highlighted', 'selection-pending'));
+                 .forEach(sugg => {
+                    sugg.classList.remove('highlighted', 'selection-pending');
+                    sugg.style.animation = 'none'; // Stop animation
+                 });
 
             if (inputMethod === "click" || isCalibrating || !initialDelayPassed || isPausedAfterSelection) {
                 return; 
@@ -940,7 +959,13 @@
             if (currentScanMode === SCANNING_MODE_ROW) {
                 if (keyboardRows[currentRowScanIndex]) { 
                     const rowDiv = document.getElementById(`kb-row-${currentRowScanIndex}`);
-                    if (rowDiv) rowDiv.classList.add(isTraversalPausedForSelectionConsideration ? 'selection-pending' : 'row-highlighted');
+                    if (rowDiv) {
+                        if (isTraversalPausedForSelectionConsideration) {
+                           rowDiv.classList.add('selection-pending');
+                        } else {
+                           rowDiv.classList.add('row-highlighted');
+                        }
+                    }
                 }
             } else if (currentScanMode === SCANNING_MODE_KEY) { 
                 if (selectedRowIndex !== -1 && keyboardRows[selectedRowIndex]?.[currentKeyScanIndexInRow]) {
