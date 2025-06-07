@@ -1,131 +1,210 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!--2-->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Keyboard - User-Triggered Suggestion Scan V17 (Dialog Fix)</title>
+    <title>Blink & Click Keyboard - Enhanced UI</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
+        :root {
+            --background-color: #111827;
+            --container-bg-color: #1F2937;
+            --key-bg-color: #374151;
+            --key-hover-bg-color: #4B5563;
+            --key-special-bg-color: #4B5563;
+
+            --primary-accent-color: #3B82F6;
+            --secondary-accent-color: #F59E0B; /* Amber for pending selection */
+            --highlight-color-gaze: #22C55E; /* Green for gaze highlight */
+            --error-color: #EF4444;
+
+            --text-color: #D1D5DB;
+            --text-muted-color: #9CA3AF;
+            --text-dark-color: #111827;
+            
+            --border-color: #374151;
+            --border-radius-md: 0.5rem;
+            --border-radius-lg: 0.75rem;
+
+            --font-family-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        /* --- Animations --- */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* 1. Full Viewport Layout & Base Styling */
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            font-family: var(--font-family-sans);
             margin: 0;
-            padding: 20px;
-            background-color: #282c34;
-            color: #abb2bf;
+            background-color: var(--background-color);
+            color: var(--text-color);
             display: flex;
-            flex-direction: column;
+            justify-content: center;
             align-items: center;
             min-height: 100vh;
+            padding: 1rem;
             box-sizing: border-box;
         }
 
-        .app-container {
-            background-color: #353a40;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        .main-content-wrapper {
             width: 100%;
-            max-width: 450px; 
+            max-width: 900px; 
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem; 
+        }
+        
+        .app-container {
+            background-color: var(--container-bg-color);
+            padding: 2rem;
+            border-radius: var(--border-radius-lg);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            width: 100%;
             display: flex;
             flex-direction: column;
             align-items: center;
+            border: 1px solid var(--border-color);
+            animation: fadeIn 0.5s ease-out;
         }
 
+        /* 2. Controls & Status Section */
         .controls {
-            margin-bottom: 20px;
+            margin-bottom: 1rem;
             text-align: center;
             width: 100%;
         }
         
         .control-buttons-container {
             display: flex;
-            justify-content: space-around; 
+            justify-content: center; 
             align-items: center;
+            gap: 1rem;
             width: 100%;
-            margin-bottom: 10px;
+            margin-bottom: 1.5rem;
         }
-
 
         #startButton, #switchInputModeButton { 
-            padding: 10px 15px; 
-            font-size: 0.85em; 
-            background-color: #61afef;
-            color: #282c34;
+            padding: 0.75rem 1.5rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            background-image: linear-gradient(to right, #3B82F6, #2563EB);
+            color: white;
             border: none;
-            border-radius: 8px;
+            border-radius: var(--border-radius-md);
             cursor: pointer;
-            transition: background-color 0.3s ease;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            min-width: 150px; 
-            white-space: normal; 
-            line-height: 1.3;
-            margin: 5px;
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2);
+            min-width: 160px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
         }
         #startButton:hover, #switchInputModeButton:hover {
-            background-color: #529bcf;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3);
         }
         #startButton:disabled, #switchInputModeButton:disabled { 
-            background-color: #4a5058;
-            color: #7f848e;
+            background-image: none;
+            background-color: var(--key-bg-color);
+            color: var(--text-muted-color);
             cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
         }
 
+        .button-icon {
+            width: 1.2em;
+            height: 1.2em;
+        }
+        .button-icon path {
+            stroke-width: 2;
+        }
 
-        #loadingMessage, .status-text {
-            margin-top: 10px;
-            font-size: 0.9em;
-            color: #98c379;
+        #loadingMessage {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--text-muted-color);
             min-height: 1.2em; 
         }
+        .loader {
+            width: 1.2em;
+            height: 1.2em;
+            border-radius: 50%;
+            border: 2px solid var(--text-muted-color);
+            border-top-color: var(--primary-accent-color);
+            animation: spin 1s linear infinite;
+            display: none; /* Hidden by default */
+        }
+        #loadingMessage.loading .loader {
+            display: block; /* Shown when loading class is added */
+        }
+        
+        .status-text {
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--text-muted-color);
+            min-height: 1.2em;
+        }
         #eyeStatus {
-            color: #e06c75;
+            color: #60A5FA; 
         }
-         #modelStatus {
-            color: #c678dd;
-            font-size: 0.8em;
+         #modelStatus { 
+            color: #A78BFA; 
         }
-        #calibrationInstructions {
-            margin-top: 15px;
-            padding: 10px;
-            background-color: #4a5058;
-            border-radius: 6px;
-            font-size: 0.95em;
-            color: #e5c07b; 
+        #calibrationInstructions, #emailSetupInstructions {
+            margin-top: 1rem;
+            padding: 0.75rem;
+            background-color: rgba(0,0,0,0.2);
+            border-radius: var(--border-radius-md);
+            font-size: 0.9rem;
+            color: var(--secondary-accent-color); 
             text-align: center;
-            display: none; 
-        }
-        #emailSetupInstructions {
-            margin-top: 5px;
-            font-size: 0.85em;
-            color: #e5c07b; 
-            min-height: 1em;
+            animation: fadeIn 0.3s ease-out;
         }
 
-
+        /* 3. Main Interaction Sections */
         .video-container {
             position: relative;
             width: 100%;
-            max-width: 640px;
+            max-width: 560px; 
             aspect-ratio: 16 / 9;
-            border: 1px solid #4a5058;
-            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius-lg);
             overflow: hidden;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            background-color: #21252b;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            background-color: #000;
         }
-        video {
-            width: 100%;
-            height: 100%;
-            transform: scaleX(-1);
-            object-fit: cover;
-        }
-        .output_canvas {
+        video, .output_canvas {
             position: absolute;
             top: 0;
             left: 0;
@@ -137,201 +216,225 @@
 
         #typedTextArea {
             width: 100%;
-            max-width: 640px;
-            min-height: 60px;
-            background-color: #21252b;
-            border: 1px solid #4a5058;
-            padding: 12px;
-            margin-bottom: 20px;
+            min-height: 80px;
+            background-color: var(--background-color);
+            border: 1px solid var(--border-color);
+            padding: 1rem;
+            font-size: 1.5rem;
+            font-weight: 500;
+            color: var(--text-color);
+            border-radius: var(--border-radius-md);
+            line-height: 1.6;
             box-sizing: border-box;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            font-size: 1.3em;
-            color: #d19a66;
-            border-radius: 8px;
-            line-height: 1.5;
+            transition: border-color 0.2s ease;
+        }
+        #typedTextArea:focus-within {
+            border-color: var(--primary-accent-color);
         }
 
+        /* 4. Keyboard Area */
         #keyboardArea {
-            margin-bottom: 15px;
+            margin-top: 1.5rem;
             display: grid;
-            gap: 8px;
+            gap: 0.6rem; 
             width: 100%;
         }
+        #keyboardArea.animate-in {
+             animation: fadeInUp 0.3s ease-out forwards;
+        }
+
         .keyboard-row {
             display: flex;
-            gap: 8px;
+            gap: 0.6rem;
             justify-content: center;
         }
         .key {
-            width: 55px;
+            width: 55px; 
             height: 55px;
-            background-color: #4a5058;
-            color: #abb2bf;
-            border: 1px solid #3b3f45;
+            background-color: var(--key-bg-color);
+            color: var(--text-color);
+            border: none;
+            border-bottom: 2px solid rgba(0,0,0,0.2);
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 1em;
-            font-weight: bold;
-            cursor: default; 
+            font-size: 1.1rem; 
+            font-weight: 500;
             user-select: none;
             box-sizing: border-box;
-            border-radius: 6px;
-            transition: background-color 0.1s ease, transform 0.1s ease, border-color 0.1s ease;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            border-radius: var(--border-radius-md);
+            transition: all 0.15s ease-out;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
             flex-shrink: 0;
         }
         .key.clickable:hover { 
-            background-color: #5c6370;
-            border-color: #529bcf;
+            background-color: var(--key-hover-bg-color);
+            transform: translateY(-2px);
         }
         .key.clickable:active { 
-            transform: scale(0.95);
-            background-color: #61afef;
+            transform: translateY(1px);
+            box-shadow: none;
         }
 
         .key.special-key {
-            background-color: #5c6370;
-            font-size: 0.75em; 
-            padding: 0 3px; 
-            line-height: 1.2; 
-            text-align: center;
-            word-break: keep-all; 
+            background-color: var(--key-special-bg-color);
+            font-size: 0.8rem;
+            font-weight: 600;
         }
+        .key-icon {
+            width: 55%;
+            height: 55%;
+            stroke-width: 1.5;
+        }
+
+         .key.final-row-key { 
+            width: auto; 
+            flex-grow: 1;
+            padding: 0 0.5rem;
+         }
         .key.email-action-key { 
             width: 150px; 
             height: 55px;
             font-size: 0.9em;
             margin: 10px;
         }
-
-
-        .key.backspace-key {
-             width: 55px;
-        }
-         .key.final-row-key { 
-            width: 67px; 
-         }
-         .key.number-key, .key.punctuation-key { 
-            font-size: 1.1em; 
-         }
-
-
+        
+        /* Blink Mode Highlighting */
         .key.highlighted { 
-            background-color: #98c379;
-            color: #282c34;
-            border-color: #88b369;
+            background-color: var(--highlight-color-gaze);
+            color: white;
             transform: scale(1.05);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
         }
         .key.selection-pending { 
-            background-color: #FFC107;
-            color: #21252b;
-            border: 2px solid #FFA000;
+            background-color: var(--secondary-accent-color);
+            color: var(--text-dark-color);
+            border: 2px solid #FBBF24; 
             transform: scale(1.1);
-        }
-        .suggestion.selection-pending {
-            background-color: #FFC107;
-            color: #21252b;
-            border: 2px solid #FFA000;
-            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
         }
          .keyboard-row.selection-pending .key { 
-            background-color: #FFC107 !important;
-            color: #21252b !important;
-            border: 2px solid #FFA000 !important;
+            background-color: var(--secondary-accent-color) !important; 
+            color: var(--text-dark-color) !important;
+            border: 2px solid #FBBF24 !important;
         }
         .key.cancel-option-pending { 
-            background-color: #e06c75 !important;
-            color: #ffffff !important;
-            border: 2px solid #d05c65 !important;
+            background-color: var(--error-color) !important; 
+            color: white !important;
+            border: 2px solid #F87171 !important;
             transform: scale(1.1);
         }
-
-
         .row-highlighted .key {
-            background-color: #61afef;
-            color: #282c34;
-            border-color: #529bcf;
-        }
-        .row-highlighted .key.highlighted { 
-            background-color: #98c379;
-            color: #282c34;
-            border-color: #88b369;
-        }
-        .row-highlighted .key.cancel-option-pending { 
-             background-color: #e06c75 !important;
-            color: #ffffff !important;
-            border: 2px solid #d05c65 !important;
+            background-color: var(--primary-accent-color);
+            color: white;
+            border-color: #1D4ED8;
         }
 
-
+        /* Suggestions Area */
         #suggestionsArea {
-            margin-bottom: 20px;
+            margin: 1rem 0;
             display: flex;
-            gap: 8px;
-            height: 40px;
+            gap: 0.75rem;
+            height: 45px;
             justify-content: center;
         }
         .suggestion {
-            padding: 0 15px;
-            background-color: #4a5058;
-            color: #abb2bf;
-            border: 1px solid #3b3f45;
+            padding: 0 1.25rem;
+            background-color: var(--key-bg-color);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 0.9em;
+            font-size: 0.9rem;
             font-weight: 500;
-            cursor: default; 
             user-select: none;
-            min-width: 90px;
+            min-width: 100px;
             height: 100%;
             box-sizing: border-box;
-            border-radius: 6px;
-            transition: background-color 0.1s ease, transform 0.1s ease;
+            border-radius: var(--border-radius-md);
+            transition: all 0.15s ease-out;
         }
         .suggestion.highlighted { 
-            background-color: #c678dd;
-            color: #282c34;
-            border-color: #b668cc;
+            background-color: #8B5CF6; 
+            color: white;
+            border-color: #7C3AED;
             transform: scale(1.05);
-            box-shadow: 0 2px 6px rgba(0,0,0,0.25);
         }
-        .suggestion.personalized {
-            border-left: 4px solid #61afef;
-            font-style: italic;
-        }
-        .suggestion.model-prediction {
-            border-left: 4px solid #98c379;
+
+        /* 5. Responsive Design */
+        @media (max-width: 768px) {
+            body {
+                padding: 0.5rem;
+            }
+            .main-content-wrapper {
+                gap: 1rem;
+            }
+            .app-container {
+                padding: 1rem;
+            }
+            .key {
+                width: 48px; 
+                height: 48px;
+                font-size: 1rem;
+            }
+             .key.final-row-key {
+                font-size: 0.65rem;
+            }
+             .key-icon {
+                width: 50%;
+                height: 50%;
+            }
+            #keyboardArea, .keyboard-row {
+                gap: 0.4rem;
+            }
+            #typedTextArea {
+                font-size: 1.25rem;
+                min-height: 70px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="app-container">
-        <div class="controls">
-            <div class="control-buttons-container">
-                <button id="startButton">Start Camera</button>
-                <button id="switchInputModeButton">Use Click Input</button>
+    <div class="main-content-wrapper">
+        <div class="app-container">
+            <div class="controls">
+                <div class="control-buttons-container">
+                    <button id="startButton">
+                        <svg id="start-icon" class="button-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" /></svg>
+                        <svg id="stop-icon" class="button-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="display: none;"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 7.5A2.25 2.25 0 0 1 7.5 5.25h9a2.25 2.25 0 0 1 2.25 2.25v9a2.25 2.25 0 0 1-2.25 2.25h-9a2.25 2.25 0 0 1-2.25-2.25v-9Z" /></svg>
+                        <span id="start-button-text">Start Camera</span>
+                    </button>
+                    <button id="switchInputModeButton">
+                        <svg id="click-mode-icon" class="button-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.042 21.672L13.684 16.6m0 0l-2.51 2.225.569-9.47 5.227 7.917-3.286-.672zm-7.518-.267A8.25 8.25 0 1120.25 10.5M8.288 14.212A5.25 5.25 0 1117.25 10.5" /></svg>
+                        <svg id="blink-mode-icon" class="button-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="display: none;"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                        <span id="switch-button-text">Use Click Input</span>
+                    </button>
+                </div>
+                <div id="loadingMessage">
+                    <div class="loader"></div>
+                    <span id="loading-text">Click 'Start Camera' or wait for auto-start.</span>
+                </div>
+                <p id="calibrationInstructions"></p>
+                <p id="emailSetupInstructions"></p> 
+                <div style="display: flex; justify-content: center; gap: 1.5rem;">
+                    <p class="status-text" id="statusText">Status: Idle</p>
+                    <p class="status-text" id="eyeStatus">EAR: N/A</p>
+                    <p class="status-text" id="modelStatus">Model: Not loaded</p>
+                </div>
             </div>
-            <p id="loadingMessage">Click 'Start Camera' or wait for auto-start.</p>
-            <p id="calibrationInstructions">Please blink slowly three times.</p>
-            <p id="emailSetupInstructions"></p> 
-            <p class="status-text" id="statusText">Status: Idle</p>
-            <p class="status-text" id="eyeStatus">EAR: N/A</p>
-            <p class="status-text" id="modelStatus">Model: Not loaded</p>
-        </div>
 
-        <div class="video-container">
-            <video id="input_video" autoplay muted playsinline></video>
-            <canvas class="output_canvas" id="output_canvas"></canvas>
-        </div>
+            <div class="video-container">
+                <video id="input_video" autoplay muted playsinline></video>
+                <canvas class="output_canvas" id="output_canvas"></canvas>
+            </div>
 
-        <div id="typedTextArea"></div>
-        <div id="suggestionsArea"></div>
-        <div id="keyboardArea"></div>
+            <div id="typedTextArea"></div>
+            <div id="suggestionsArea"></div>
+            <div id="keyboardArea"></div>
+        </div>
     </div>
+
 
     <script type="module">
         // DOM Elements
@@ -347,6 +450,16 @@
         const startButton = document.getElementById('startButton');
         const switchInputModeButton = document.getElementById('switchInputModeButton');
         const loadingMessage = document.getElementById('loadingMessage');
+        const loadingText = document.getElementById('loading-text');
+
+        const startIcon = document.getElementById('start-icon');
+        const stopIcon = document.getElementById('stop-icon');
+        const clickModeIcon = document.getElementById('click-mode-icon');
+        const blinkModeIcon = document.getElementById('blink-mode-icon');
+        const startButtonText = document.getElementById('start-button-text');
+        const switchButtonText = document.getElementById('switch-button-text');
+
+
         const calibrationInstructions = document.getElementById('calibrationInstructions');
         const emailSetupInstructions = document.getElementById('emailSetupInstructions');
 
@@ -361,32 +474,43 @@
         const MAX_SUGGESTIONS = 3;
         const SUGGESTION_SKIP_TEXT = "[Skip]"; 
 
+        // --- NEW: Special Key Characters and SVG Icons ---
         const SUGGEST_KEY_CHAR = "Suggest"; 
         const SEARCH_KEY_CHAR = "Search";  
         const MAIL_KEY_CHAR = "Mail";     
-        const BACKSPACE_KEY_CHAR = "<-";
-        const DELETE_KEY_CHAR = "DEL";      
-        const CANCEL_KEY_CHAR = "CNCL";     
+        const BACKSPACE_KEY_CHAR = "Backspace"; // Changed from "<-"
+        const DELETE_KEY_CHAR = "Delete"; // Changed from "DEL"
+        const CANCEL_KEY_CHAR = "Cancel"; // Changed from "CNCL"
         const SPACE_KEY_CHAR = " ";
         const SPACE_KEY_DISPLAY_TEXT = "SPACE";
         const NUM_KEY_CHAR = "Num";       
         const PUNC_KEY_CHAR = "[,.]";      
 
-        // Email Setup Keys
-        const SENDER_EMAIL_ADDRESS = "arnavrai03@gmail.com"; // <<< HARDCODE YOUR SENDER EMAIL HERE (Line 208 approx)
-        const EMAIL_NEXT_FIELD_KEY = "Next"; 
-        const EMAIL_SEND_KEY = "Send Mail";
-        const EMAIL_CANCEL_SETUP_KEY = "Cancel Mail";
+        const SENDER_EMAIL_ADDRESS = "your-email@example.com"; 
+        const EMAIL_NEXT_FIELD_KEY = "EmailNext"; 
+        const EMAIL_SEND_KEY = "EmailSend";
+        const EMAIL_CANCEL_SETUP_KEY = "EmailCancel"; 
         const EMAIL_DOMAIN_SUFFIX = "@gmail.com";
 
+        const specialKeyIcons = {
+            [BACKSPACE_KEY_CHAR]: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="key-icon"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9.75L14.25 12m0 0l2.25 2.25M14.25 12L12 14.25m-2.58 4.92l-6.375-6.375a1.125 1.125 0 010-1.59L9.42 4.83c.211-.211.498-.33.796-.33H19.5a2.25 2.25 0 012.25 2.25v10.5a2.25 2.25 0 01-2.25 2.25h-9.284c-.298 0-.585-.119-.796-.33z" /></svg>`,
+            [DELETE_KEY_CHAR]: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="key-icon"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>`,
+            [SUGGEST_KEY_CHAR]: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="key-icon"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>`,
+            [SEARCH_KEY_CHAR]: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="key-icon"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>`,
+            [MAIL_KEY_CHAR]: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="key-icon"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>`,
+            [CANCEL_KEY_CHAR]: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="key-icon"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>`,
+            [EMAIL_NEXT_FIELD_KEY]: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="key-icon"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>`,
+            [EMAIL_SEND_KEY]: `<svg xmlns="http://www.w.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="key-icon"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /></svg>`,
+            [EMAIL_CANCEL_SETUP_KEY]: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="key-icon"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 9v.906a2.25 2.25 0 01-1.183 1.981l-6.478 3.488M2.25 9v.906a2.25 2.25 0 001.183 1.981l6.478 3.488m8.839 2.51l-4.66-2.51m0 0l-1.023-.55a2.25 2.25 0 00-2.134 0l-1.022.55m0 0l-4.661 2.51m16.5 1.615a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V8.844a2.25 2.25 0 011.183-1.981l7.5-4.039a2.25 2.25 0 012.134 0l7.5 4.039a2.25 2.25 0 011.183 1.981V18z" /><path stroke-linecap="round" stroke-linejoin="round" d="M18 6L6 18M6 6l12 12" /></svg>`
+        };
 
         const NUMBERS_LAYOUT_CONFIG = { chars: "1234567890".split(''), type: 'number' };
         const PUNCTUATION_LAYOUT_CONFIG = { chars: ",.@?!'".split(''), type: 'punctuation' };
 
-
         const KEYS_PER_ALPHABET_ROW = 6;
         const NUM_ALPHABET_ROWS = 4; 
         const DEFAULT_SPECIAL_KEYS_FINAL_ROW_CHARS = [SUGGEST_KEY_CHAR, SEARCH_KEY_CHAR, MAIL_KEY_CHAR, DELETE_KEY_CHAR, CANCEL_KEY_CHAR];
+        const EMAIL_SETUP_FINAL_ROW_CHARS = [EMAIL_NEXT_FIELD_KEY, BACKSPACE_KEY_CHAR, DELETE_KEY_CHAR, EMAIL_CANCEL_SETUP_KEY];
 
 
         const TRAVERSAL_INTERVAL = 0.8; 
@@ -404,7 +528,7 @@
         let currentRowScanIndex = 0;
         let currentKeyScanIndexInRow = 0; 
         let selectedRowIndex = -1; 
-        let originalSelectedRowForKeyScan = -1;
+        let originalSelectedRowForKeyScan = -1; 
         let lastTraversalTime = performance.now();
         let typedText = ""; 
         let isPausedAfterSelection = false;
@@ -449,7 +573,6 @@
         // Input Mode State
         let inputMethod = "blink"; 
 
-
         // Special Keyboard State (Num/Punc)
         let activeSpecialKeyboardType = null; 
         let specialKeyboardRowElements = []; 
@@ -459,6 +582,7 @@
         let emailSetupPhase = ""; 
         let receiverEmailUsername = ""; 
         let originalTypedTextBeforeEmail = ""; 
+        let isOfferingGenericCancelForEmailRow = false; 
 
         const SCANNING_MODE_ROW = 0;
         const SCANNING_MODE_KEY = 1; 
@@ -470,29 +594,30 @@
         const RIGHT_EYE_INDICES = [33, 160, 158, 133, 153, 144];
 
         // --- Auto-start Camera Logic ---
-        function startAutoStartTimer() { /* ... (implementation unchanged) ... */ 
+        function startAutoStartTimer() { 
             if (autoStartTimerId) clearInterval(autoStartTimerId); 
             isAutoStartActive = true;
             isAutoStartPaused = false;
             autoStartCountdown = 2; 
-            startButton.textContent = `Starting in ${autoStartCountdown}s... (Click to Pause)`;
+            startButtonText.textContent = `Starting in ${autoStartCountdown}s...`;
+            loadingText.textContent = 'Auto-starting... (Click button to pause)';
             startButton.disabled = false; 
 
             autoStartTimerId = setInterval(() => {
                 autoStartCountdown--;
                 if (autoStartCountdown > 0) {
-                    startButton.textContent = `Starting in ${autoStartCountdown}s... (Click to Pause)`;
+                    startButtonText.textContent = `Starting in ${autoStartCountdown}s...`;
                 } else {
                     clearInterval(autoStartTimerId);
                     autoStartTimerId = null;
                     isAutoStartActive = false;
-                    startButton.textContent = "Starting..."; 
+                    startButtonText.textContent = "Starting..."; 
                     startButton.disabled = true;
                     startApp(); 
                 }
             }, AUTO_START_INTERVAL);
         }
-        function stopAutoStartTimer() { /* ... (implementation unchanged) ... */ 
+        function stopAutoStartTimer() { 
             if (autoStartTimerId) {
                 clearInterval(autoStartTimerId);
                 autoStartTimerId = null;
@@ -501,7 +626,7 @@
         }
 
         // --- Model Loading & Word Lists ---
-        async function loadCharMappings() { /* ... (implementation unchanged) ... */ 
+        async function loadCharMappings() { 
             try {
                 const response = await fetch('./char_mappings.json');
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status} for char_mappings.json`);
@@ -512,7 +637,7 @@
                 if (!charToIndex || !indexToChar || !modelSequenceLength || !modelVocabSize) throw new Error("Character mapping data incomplete.");
             } catch (error) { console.error("Could not load char_mappings.json:", error); modelStatusText.textContent = "Model: CharMap Error"; tfModelLoaded = false; }
         }
-        async function loadTFModel() { /* ... (implementation unchanged) ... */ 
+        async function loadTFModel() { 
             if (Object.keys(charToIndex).length === 0) { modelStatusText.textContent = "Model: Not Loaded (No CharMap)"; return; }
             modelStatusText.textContent = "Model: Loading...";
             try {
@@ -525,7 +650,7 @@
                 }
             } catch (error) { console.error("Error loading TF.js model:", error); modelStatusText.textContent = "Model: Error loading"; tfModelLoaded = false; }
         }
-        async function getTFModelSuggestions(prefix) { /* ... (implementation unchanged) ... */ 
+        async function getTFModelSuggestions(prefix) { 
             if (!tfModelLoaded || !tfModel || !prefix || prefix.length === 0 || Object.keys(charToIndex).length === 0) return [];
             let currentGeneratedSequence = prefix.toLowerCase();
             const modelSuggestionsOutput = new Set();
@@ -559,7 +684,7 @@
                 return Array.from(modelSuggestionsOutput).map(text => ({ text, source: 'model' }));
             } catch (error) { console.error("Error during TF model prediction:", error); return []; }
         }
-        async function loadWordLists() { /* ... (implementation unchanged) ... */ 
+        async function loadWordLists() { 
             try {
                 const storedPersonalizedWords = localStorage.getItem('personalizedWordList');
                 PERSONALIZED_WORD_LIST = storedPersonalizedWords ? JSON.parse(storedPersonalizedWords) : {};
@@ -572,11 +697,11 @@
                 if (BASE_WORD_LIST.length === 0) BASE_WORD_LIST = [...DEFAULT_FALLBACK_WORDS];
             } catch (error) { BASE_WORD_LIST = [...DEFAULT_FALLBACK_WORDS]; }
         }
-        function savePersonalizedWords() { /* ... (implementation unchanged) ... */ 
+        function savePersonalizedWords() { 
             try { localStorage.setItem('personalizedWordList', JSON.stringify(PERSONALIZED_WORD_LIST)); } 
             catch (e) { console.error("Error saving personalized words:", e); }
         }
-        function learnWord(word) { /* ... (implementation unchanged) ... */ 
+        function learnWord(word) { 
             if (!word || typeof word !== 'string' || word.length === 0) return;
             const upperWord = word.trim().toUpperCase();
             if (upperWord.length < 2 && !["A", "I"].includes(upperWord)) return;
@@ -585,10 +710,10 @@
         }
 
         // --- Audio & EAR Calculation ---
-        function initAudio() { /* ... (implementation unchanged) ... */ 
+        function initAudio() { 
              if (!audioCtx && (window.AudioContext || window.webkitAudioContext)) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         }
-        function playSound(type = "key_action") { /* ... (implementation unchanged) ... */ 
+        function playSound(type = "key_action") { 
             if (!audioCtx) return;
             try {
                 const oscillator = audioCtx.createOscillator();
@@ -610,11 +735,11 @@
                 oscillator.start(); oscillator.stop(audioCtx.currentTime + 0.15);
             } catch (e) { console.error("Error playing sound:", type, e); }
         }
-        function calculateDistance(p1, p2) { /* ... (implementation unchanged) ... */ 
+        function calculateDistance(p1, p2) { 
             if (!p1 || !p2 || p1.x === undefined || p2.x === undefined) return 0.0;
             return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
         }
-        function calculateEAR(eyeLandmarks) { /* ... (implementation unchanged) ... */ 
+        function calculateEAR(eyeLandmarks) { 
             if (!eyeLandmarks || eyeLandmarks.length !== 6) return 0.6; 
             for(let lm of eyeLandmarks) if(!lm || lm.x === undefined || lm.y === undefined) return 0.6;
             const v1 = calculateDistance(eyeLandmarks[1], eyeLandmarks[5]);
@@ -661,10 +786,15 @@
                 { char: NUM_KEY_CHAR, display: NUM_KEY_CHAR, classList: 'key special-key' },
                 { char: PUNC_KEY_CHAR, display: PUNC_KEY_CHAR, classList: 'key special-key' },
                 { char: SPACE_KEY_CHAR, display: SPACE_KEY_DISPLAY_TEXT, classList: 'key' }, 
-                { char: BACKSPACE_KEY_CHAR, display: BACKSPACE_KEY_CHAR, classList: 'key special-key backspace-key' }
+                { char: BACKSPACE_KEY_CHAR, display: BACKSPACE_KEY_CHAR, classList: 'key special-key' }
             ];
             row4KeyDefinitions.forEach((keyDef, i) => {
-                const keyDiv = document.createElement('div'); keyDiv.className = keyDef.classList; keyDiv.id = `key-${NUM_ALPHABET_ROWS}-${i}`; keyDiv.textContent = keyDef.display;
+                const keyDiv = document.createElement('div'); keyDiv.className = keyDef.classList; keyDiv.id = `key-${NUM_ALPHABET_ROWS}-${i}`;
+                if (specialKeyIcons[keyDef.char]) {
+                    keyDiv.innerHTML = specialKeyIcons[keyDef.char];
+                } else {
+                    keyDiv.textContent = keyDef.display;
+                }
                 addKeyClickListener(keyDiv, keyDef.char);
                 row4Div.appendChild(keyDiv); row4Layout.push({ char: keyDef.char, element: keyDiv, row: NUM_ALPHABET_ROWS, col: i });
             });
@@ -676,13 +806,19 @@
             finalRowCharsToUse.forEach((char, i) => {
                 const keyDiv = document.createElement('div'); 
                 keyDiv.className = 'key special-key final-row-key'; 
-                keyDiv.id = `key-${NUM_ALPHABET_ROWS + 1}-${i}`; 
-                keyDiv.textContent = char;
+                keyDiv.id = `key-${NUM_ALPHABET_ROWS + 1}-${i}`;
+                if (specialKeyIcons[char]) {
+                    keyDiv.innerHTML = specialKeyIcons[char];
+                } else {
+                    keyDiv.textContent = char;
+                }
                 addKeyClickListener(keyDiv, char);
                 row5Div.appendChild(keyDiv); 
                 row5Layout.push({ char: char, element: keyDiv, row: NUM_ALPHABET_ROWS + 1, col: i });
             });
             keyboardRows.push(row5Layout); keyboardArea.appendChild(row5Div);
+            keyboardArea.classList.add('animate-in');
+            keyboardArea.addEventListener('animationend', () => keyboardArea.classList.remove('animate-in'), {once: true});
             updateKeyAppearanceForInputMode();
         }
         function displaySpecialKeyboard(layoutConfig) { 
@@ -707,12 +843,18 @@
             const cancelKeyDiv = document.createElement('div');
             cancelKeyDiv.className = 'key special-key'; 
             cancelKeyDiv.id = `key-special-${layoutConfig.type}-cancel`;
-            cancelKeyDiv.textContent = CANCEL_KEY_CHAR;
+            if (specialKeyIcons[CANCEL_KEY_CHAR]) {
+                cancelKeyDiv.innerHTML = specialKeyIcons[CANCEL_KEY_CHAR];
+            } else {
+                cancelKeyDiv.textContent = CANCEL_KEY_CHAR;
+            }
             addKeyClickListener(cancelKeyDiv, CANCEL_KEY_CHAR);
             rowDiv.appendChild(cancelKeyDiv);
             specialKeyboardRowElements.push({ char: CANCEL_KEY_CHAR, element: cancelKeyDiv, row: 0, col: layoutConfig.chars.length });
 
             keyboardArea.appendChild(rowDiv);
+            keyboardArea.classList.add('animate-in');
+            keyboardArea.addEventListener('animationend', () => keyboardArea.classList.remove('animate-in'), {once: true});
             if (inputMethod === "blink") { 
                 lastTraversalTime = performance.now(); 
                 currentKeyScanIndexInRow = 0; 
@@ -728,27 +870,26 @@
             rowDiv.className = 'keyboard-row'; 
             rowDiv.id = 'kb-email-confirm-row';
 
-            const sendKeyDiv = document.createElement('div');
-            sendKeyDiv.className = 'key special-key email-action-key'; 
-            sendKeyDiv.id = 'key-email-send';
-            sendKeyDiv.textContent = EMAIL_SEND_KEY;
-            addKeyClickListener(sendKeyDiv, EMAIL_SEND_KEY);
-            rowDiv.appendChild(sendKeyDiv);
-            keyboardRows = [[ 
-                { char: EMAIL_SEND_KEY, element: sendKeyDiv, row: 0, col: 0 }
-            ]];
+            const keysToShow = [EMAIL_SEND_KEY, EMAIL_CANCEL_SETUP_KEY];
+            keyboardRows = [[]]; // Reset and create one row
 
-
-            const cancelKeyDiv = document.createElement('div');
-            cancelKeyDiv.className = 'key special-key email-action-key';
-            cancelKeyDiv.id = 'key-email-cancel-setup';
-            cancelKeyDiv.textContent = EMAIL_CANCEL_SETUP_KEY;
-            addKeyClickListener(cancelKeyDiv, EMAIL_CANCEL_SETUP_KEY);
-            rowDiv.appendChild(cancelKeyDiv);
-            keyboardRows[0].push({ char: EMAIL_CANCEL_SETUP_KEY, element: cancelKeyDiv, row: 0, col: 1 });
-
+            keysToShow.forEach((keyChar, index) => {
+                const keyDiv = document.createElement('div');
+                keyDiv.className = 'key special-key email-action-key';
+                keyDiv.id = `key-email-${keyChar}`;
+                if (specialKeyIcons[keyChar]) {
+                    keyDiv.innerHTML = specialKeyIcons[keyChar];
+                } else {
+                    keyDiv.textContent = keyChar;
+                }
+                addKeyClickListener(keyDiv, keyChar);
+                rowDiv.appendChild(keyDiv);
+                keyboardRows[0].push({ char: keyChar, element: keyDiv, row: 0, col: index });
+            });
 
             keyboardArea.appendChild(rowDiv);
+            keyboardArea.classList.add('animate-in');
+            keyboardArea.addEventListener('animationend', () => keyboardArea.classList.remove('animate-in'), {once: true});
             
             console.log("displayEmailConfirmScreen: originalTypedTextBeforeEmail is:", originalTypedTextBeforeEmail); 
             typedTextArea.innerHTML = `To: ${receiverEmailUsername + EMAIL_DOMAIN_SUFFIX}<br>From: ${SENDER_EMAIL_ADDRESS}<br>Subject: Message via Eye Keyboard<br><br>Body:<br>${originalTypedTextBeforeEmail.replace(/\n/g, '<br>')}`;
@@ -806,6 +947,8 @@
                     elementToMark = keyboardRows[selectedRowIndex][currentKeyScanIndexInRow].element;
                     if (isOfferingKeyScanCancel && keyboardRows[selectedRowIndex][currentKeyScanIndexInRow].char === CANCEL_KEY_CHAR) {
                         isCancelForMainKeyboard = true; 
+                    } else if (isOfferingGenericCancelForEmailRow && keyboardRows[selectedRowIndex][currentKeyScanIndexInRow].char === EMAIL_CANCEL_SETUP_KEY) {
+                        elementToMark.classList.add('cancel-option-pending'); 
                     }
                 }
             } else if (currentScanMode === SCANNING_MODE_SUGGESTION) {
@@ -830,7 +973,7 @@
                     elementToMark.classList.add('cancel-option-pending');
                 } else if (isTraversalPausedForSelectionConsideration) {
                     elementToMark.classList.add('selection-pending');
-                } else {
+                } else if (!elementToMark.classList.contains('cancel-option-pending')) { 
                     elementToMark.classList.add('highlighted');
                 }
                 if (suggestionSource === 'personalized') elementToMark.classList.add('personalized');
@@ -839,7 +982,7 @@
         }
 
         // --- Suggestions Logic ---
-        function getPersonalizedSuggestions(prefix) { /* ... (implementation unchanged) ... */ 
+        function getPersonalizedSuggestions(prefix) { 
             if (!prefix) return [];
             const prefixLower = prefix.toLowerCase();
             return Object.entries(PERSONALIZED_WORD_LIST)
@@ -847,7 +990,7 @@
                 .map(([text, frequency]) => ({ text, frequency, source: 'personalized' })) 
                 .sort((a, b) => b.frequency - a.frequency);
         }
-        async function getCombinedSuggestions(prefix) { /* ... (implementation unchanged) ... */ 
+        async function getCombinedSuggestions(prefix) { 
             if (!prefix) return [];
             const prefixLower = prefix.toLowerCase();
             let combined = [];
@@ -920,6 +1063,7 @@
             lastTraversalTime = performance.now();
             isTraversalPausedForSelectionConsideration = false;
             isOfferingKeyScanCancel = false;
+            isOfferingGenericCancelForEmailRow = false; // Reset this flag
             eyeClosureFramesCount = 0;
             statusText.textContent = "Status: Row Scanning";
             updateKeyboardHighlight(); 
@@ -933,7 +1077,7 @@
             emailSetupInstructions.textContent = "";
 
             if (fromEmailProcess) { 
-                 typedTextArea.textContent = originalTypedTextBeforeEmail;
+                 typedTextArea.innerHTML = originalTypedTextBeforeEmail; 
                  typedText = originalTypedTextBeforeEmail; 
             } else if (clearMainTypedTextAfterSend) { 
                 typedText = "";
@@ -960,11 +1104,12 @@
             updateKeyAppearanceForInputMode();
         }
 
-        function handleCalibration(avgEar) { /* ... (implementation unchanged) ... */ 
+        function handleCalibration(avgEar) { 
             if (!isCalibrating) return false; 
 
             calibrationInstructions.style.display = 'block';
-            loadingMessage.textContent = `Calibrating: ${calibrationBlinksNeeded} blink(s) remaining.`;
+            loadingMessage.classList.add('loading');
+            loadingText.textContent = `Calibrating: ${calibrationBlinksNeeded} blink(s) remaining.`;
             eyeStatusText.textContent = `EAR: ${avgEar.toFixed(2)} (Calibrating)`;
 
             if (calibrationState === "idle") {
@@ -997,7 +1142,7 @@
                         calibrationEarValues.push(currentCalibrationBlinkMinEar);
                         calibrationBlinksNeeded--;
                         playSound("calibration_blink");
-                        loadingMessage.textContent = `Blink ${3 - calibrationBlinksNeeded} registered! Min EAR: ${currentCalibrationBlinkMinEar.toFixed(2)}. ${calibrationBlinksNeeded} more.`;
+                        loadingText.textContent = `Blink ${3 - calibrationBlinksNeeded} registered! ${calibrationBlinksNeeded} more.`;
                         console.log(`Calibration blink ${3-calibrationBlinksNeeded} detected. Min EAR: ${currentCalibrationBlinkMinEar}`);
 
                         calibrationState = "idle";
@@ -1014,11 +1159,13 @@
                                 if (minEarThreshold < 0.15) minEarThreshold = 0.15; 
 
                                 playSound("calibration_done");
-                                loadingMessage.textContent = `Calibration complete! New EAR Threshold: ${minEarThreshold.toFixed(2)}`;
+                                loadingMessage.classList.remove('loading');
+                                loadingText.textContent = `Calibration complete! Threshold: ${minEarThreshold.toFixed(2)}`;
                                 console.log(`Calibration complete. Values: ${calibrationEarValues.join(', ')}. Average Min: ${avgCalibratedEar.toFixed(2)}. New Threshold: ${minEarThreshold.toFixed(2)}`);
                             } else {
                                 minEarThreshold = 0.25; 
-                                loadingMessage.textContent = "Calibration failed to get values, using default threshold.";
+                                loadingMessage.classList.remove('loading');
+                                loadingText.textContent = "Calibration failed, using default threshold.";
                                 console.warn("Calibration completed with no EAR values, using default.");
                             }
                             isCalibrating = false;
@@ -1040,7 +1187,7 @@
 
         function startEmailSetup() {
             isSettingUpEmail = true;
-            emailSetupPhase = "enter_receiver"; // Skip sender input
+            emailSetupPhase = "enter_receiver"; 
             console.log("startEmailSetup: typedText before capture:", typedText);
             originalTypedTextBeforeEmail = typedText; 
             console.log("startEmailSetup: originalTypedTextBeforeEmail captured:", originalTypedTextBeforeEmail);
@@ -1049,7 +1196,7 @@
             receiverEmailUsername = "";
             statusText.textContent = "Status: Email Setup";
             emailSetupInstructions.textContent = `Enter Receiver's Gmail Username (before ${EMAIL_DOMAIN_SUFFIX}).`;
-            generateKeyboardLayout([EMAIL_NEXT_FIELD_KEY, BACKSPACE_KEY_CHAR, DELETE_KEY_CHAR, EMAIL_CANCEL_SETUP_KEY]);
+            generateKeyboardLayout(EMAIL_SETUP_FINAL_ROW_CHARS); 
             
             if (inputMethod === "blink") { 
                 currentScanMode = SCANNING_MODE_ROW; 
@@ -1057,6 +1204,7 @@
                 currentKeyScanIndexInRow = 0;
                 selectedRowIndex = -1;
                 isOfferingKeyScanCancel = false; 
+                isOfferingGenericCancelForEmailRow = false;
             }
             updateKeyboardHighlight();
             updateKeyAppearanceForInputMode();
@@ -1064,173 +1212,173 @@
 
        function performKeyAction(char, isFromMouseClick = false, isSuggestion = false) {
             if (isFromMouseClick) playSound("mouse_click");
-            // Blink mode sounds are handled by their respective selection logic points
-
+            
             let wordToLearn = null;
-            let postActionKeyboardResetNeeded = true; 
-            let specificResetType = "main"; 
 
-            // Priority 1: Num/Punc keys to display their keyboards (unless in final email confirm)
-            if (char === NUM_KEY_CHAR && !(emailSetupPhase === "confirm_send")) {
+            // --- PRIORITY 1: DISPLAY SPECIAL KEYBOARDS ---
+            if (char === NUM_KEY_CHAR && emailSetupPhase !== "confirm_send") {
                 if(!isFromMouseClick && inputMethod === "blink") playSound("special_key_select");
                 displaySpecialKeyboard(NUMBERS_LAYOUT_CONFIG);
                 currentScanMode = SCANNING_MODE_SPECIAL_ROW; 
                 statusText.textContent = "Status: Number Input";
-                return; 
-            } else if (char === PUNC_KEY_CHAR && !(emailSetupPhase === "confirm_send")) {
+                return;
+            }
+            if (char === PUNC_KEY_CHAR && emailSetupPhase !== "confirm_send") {
                 if(!isFromMouseClick && inputMethod === "blink") playSound("special_key_select");
                 displaySpecialKeyboard(PUNCTUATION_LAYOUT_CONFIG);
                 currentScanMode = SCANNING_MODE_SPECIAL_ROW;
                 statusText.textContent = "Status: Punctuation Input";
-                return; 
+                return;
             }
-            // Priority 2: Final Email Confirmation Screen Actions
-            else if (emailSetupPhase === "confirm_send") { 
+
+            // --- PRIORITY 2: HANDLE ACTIVE SPECIAL KEYBOARD (Num/Punc) ---
+            if (activeSpecialKeyboardType) {
+                if(!isFromMouseClick) playSound("special_char_select");
+                if (char !== CANCEL_KEY_CHAR) {
+                    typedText += char;
+                    typedTextArea.textContent = typedText;
+                }
+                activeSpecialKeyboardType = null; // Exit special kbd mode
+                // Return to appropriate previous keyboard
+                if (isSettingUpEmail) {
+                    generateKeyboardLayout(EMAIL_SETUP_FINAL_ROW_CHARS);
+                    if (inputMethod === "blink") resetToRowScan();
+                } else {
+                    resetAndDisplayMainKeyboard();
+                }
+                return;
+            }
+
+            // --- PRIORITY 3: HANDLE FINAL EMAIL CONFIRMATION ---
+            if (emailSetupPhase === "confirm_send") {
                 if (char === EMAIL_SEND_KEY) {
-                    if(!isFromMouseClick && inputMethod === "blink") playSound("email_send");
+                    if(!isFromMouseClick) playSound("email_send");
                     const fullReceiver = receiverEmailUsername + EMAIL_DOMAIN_SUFFIX;
                     const mailtoLink = `mailto:${fullReceiver}?subject=${encodeURIComponent("Message via Eye Keyboard")}&body=${encodeURIComponent(originalTypedTextBeforeEmail + "\n\n(Sender: " + SENDER_EMAIL_ADDRESS + ")")}`;
                     window.open(mailtoLink, '_blank');
                     statusText.textContent = "Status: Email client opened.";
-                    resetAndDisplayMainKeyboard(false, true); 
+                    resetAndDisplayMainKeyboard(false, true);
                 } else if (char === EMAIL_CANCEL_SETUP_KEY) {
-                    if(!isFromMouseClick && inputMethod === "blink") playSound("key_action");
+                    if(!isFromMouseClick) playSound("key_action");
                     statusText.textContent = "Status: Email cancelled.";
-                    resetAndDisplayMainKeyboard(true); 
-                }
-                return; 
-            }
-            // Priority 3: Suggestion Selection
-            else if (isSuggestion) {
-                 if(!isFromMouseClick && inputMethod === "blink") playSound("suggestion_select");
-                 if (char !== SUGGESTION_SKIP_TEXT) {
-                    const ls = typedText.lastIndexOf(' '); 
-                    const baseText = isSettingUpEmail ? typedText.substring(0, typedText.lastIndexOf(SPACE_KEY_CHAR) +1 || 0) : (ls === -1 ? "" : typedText.substring(0, ls + 1));
-                    typedText = baseText + char + (isSettingUpEmail ? "" : " "); 
-                    typedTextArea.textContent = typedText; 
-                    if (!isSettingUpEmail) learnWord(char);
-                } 
-                statusText.textContent = `Suggestion: ${char}`;
-                currentSuggestionObjects = []; 
-                specificResetType = isSettingUpEmail ? "email_setup_continue" : "main";
-            }
-            // Priority 4: Actions from an active Num/Punc keyboard
-            else if (activeSpecialKeyboardType) { 
-                 if(!isFromMouseClick && inputMethod === "blink") playSound("special_char_select");
-                 if (char === CANCEL_KEY_CHAR) {
-                    // Do nothing with text, just reset keyboard
-                } else {
-                    typedText += char; 
-                    typedTextArea.textContent = typedText;
-                }
-                specificResetType = isSettingUpEmail ? "special_keyboard_return_to_email" : "special_keyboard_return_to_main";
-                activeSpecialKeyboardType = null; 
-            } 
-            // Priority 5: Actions during email address input (not Num/Punc, not suggestion, not final confirm)
-            else if (isSettingUpEmail) { 
-                if(!isFromMouseClick && char !== EMAIL_NEXT_FIELD_KEY && char !== EMAIL_CANCEL_SETUP_KEY) playSound("key_action");
-
-                if (char === EMAIL_NEXT_FIELD_KEY) {
-                    playSound("email_next"); 
-                    receiverEmailUsername = typedText; 
-                    typedText = ""; // Clear for the confirm screen's special display
-                    // typedTextArea.textContent = ""; // Don't clear here, displayEmailConfirmScreen will set innerHTML
-                    emailSetupPhase = "confirm_send";
-                    emailSetupInstructions.textContent = "Confirm and send?";
-                    displayEmailConfirmScreen(); 
-                    return; // IMPORTANT: Return to prevent further processing
-                    
-                } else if (char === EMAIL_CANCEL_SETUP_KEY) {
-                    if(!isFromMouseClick && inputMethod === "blink") playSound("key_action");
                     resetAndDisplayMainKeyboard(true);
-                    postActionKeyboardResetNeeded = false;
-                } else if (char === BACKSPACE_KEY_CHAR) {
+                }
+                return;
+            }
+            
+            // --- PRIORITY 4: HANDLE SUGGESTION SELECTION ---
+            if (isSuggestion) {
+                if(!isFromMouseClick) playSound("suggestion_select");
+                if (char !== SUGGESTION_SKIP_TEXT) {
+                   const ls = typedText.lastIndexOf(' '); 
+                   const baseText = isSettingUpEmail ? typedText.substring(0, typedText.lastIndexOf(SPACE_KEY_CHAR) +1 || 0) : (ls === -1 ? "" : typedText.substring(0, ls + 1));
+                   typedText = baseText + char + (isSettingUpEmail ? "" : " "); 
+                   typedTextArea.textContent = typedText; 
+                   if (!isSettingUpEmail) learnWord(char);
+               } 
+               statusText.textContent = `Suggestion: ${char}`;
+               currentSuggestionObjects = [];
+               if (isSettingUpEmail) {
+                   generateKeyboardLayout(EMAIL_SETUP_FINAL_ROW_CHARS);
+                   if (inputMethod === "blink") resetToRowScan();
+               } else {
+                   resetAndDisplayMainKeyboard(false);
+               }
+               return;
+            }
+
+            // --- PRIORITY 5: HANDLE MAIN KEYBOARD ACTIONS (Can be normal or during email setup) ---
+            switch (char) {
+                case MAIL_KEY_CHAR:
+                    if (!isSettingUpEmail) { 
+                        if(!isFromMouseClick) playSound("special_key_select");
+                        startEmailSetup();
+                    }
+                    break;
+                case SEARCH_KEY_CHAR:
+                    if (!isSettingUpEmail) {
+                        if(!isFromMouseClick) playSound("key_action");
+                        if (typedText) window.open(`https://www.google.com/search?q=${encodeURIComponent(typedText)}`, '_blank');
+                        resetAndDisplayMainKeyboard();
+                    }
+                    break;
+                case EMAIL_NEXT_FIELD_KEY:
+                     if (isSettingUpEmail) {
+                        playSound("email_next"); 
+                        receiverEmailUsername = typedText; 
+                        typedText = ""; 
+                        emailSetupPhase = "confirm_send";
+                        emailSetupInstructions.textContent = "Confirm and send?";
+                        displayEmailConfirmScreen();
+                    }
+                    break;
+                case EMAIL_CANCEL_SETUP_KEY: // Cancel from email keyboard bottom row
+                    if (isSettingUpEmail) {
+                        if(!isFromMouseClick) playSound("key_action");
+                        resetAndDisplayMainKeyboard(true);
+                    }
+                    break;
+                case CANCEL_KEY_CHAR: // Generic cancel, used for row scan cancel
+                    if (isOfferingGenericCancelForEmailRow) {
+                        if(!isFromMouseClick) playSound("key_action");
+                        generateKeyboardLayout(EMAIL_SETUP_FINAL_ROW_CHARS);
+                        resetToRowScan();
+                    } else if (!isSettingUpEmail) {
+                        if(!isFromMouseClick) playSound("key_action");
+                        resetAndDisplayMainKeyboard();
+                    }
+                    break;
+                case BACKSPACE_KEY_CHAR:
+                    if(!isFromMouseClick) playSound("key_action");
                     typedText = typedText.slice(0, -1);
-                } else if (char === DELETE_KEY_CHAR) {
-                    const lastSpace = typedText.trimEnd().lastIndexOf(' ');
-                    typedText = (lastSpace !== -1) ? typedText.substring(0, lastSpace + 1) : "";
-                } else if (![SUGGEST_KEY_CHAR, MAIL_KEY_CHAR, SEARCH_KEY_CHAR, CANCEL_KEY_CHAR].includes(char)) { 
-                    typedText += char;
-                }
-                typedTextArea.textContent = typedText;
-                if (char !== EMAIL_NEXT_FIELD_KEY && char !== EMAIL_CANCEL_SETUP_KEY) {
-                     specificResetType = "email_setup_continue"; 
-                }
-            } 
-            // Priority 6: Normal main keyboard actions
-            else { 
-                if (char === MAIL_KEY_CHAR) {
-                    if(!isFromMouseClick && inputMethod === "blink") playSound("special_key_select");
-                    startEmailSetup();
-                    postActionKeyboardResetNeeded = false; 
-                } else if (char === SEARCH_KEY_CHAR) {
-                    if(!isFromMouseClick && inputMethod === "blink") playSound("key_action");
-                    if (typedText) window.open(`https://www.google.com/search?q=${encodeURIComponent(typedText)}`, '_blank');
-                    currentSuggestionObjects = []; 
-                    specificResetType = "main";
-                } else if (char === BACKSPACE_KEY_CHAR) { 
-                    if(!isFromMouseClick && inputMethod === "blink") playSound("key_action");
-                    typedText = typedText.slice(0, -1); 
-                } else if (char === SPACE_KEY_CHAR) { 
-                    if(!isFromMouseClick && inputMethod === "blink") playSound("key_action");
-                    const w = typedText.trim().split(/\s+/); if (w.length > 0 && w[w.length-1]) wordToLearn = w[w.length-1]; typedText += " "; 
-                } else if (char === DELETE_KEY_CHAR) { 
-                    if(!isFromMouseClick && inputMethod === "blink") playSound("key_action");
-                    const ls = typedText.trimEnd().lastIndexOf(' '); typedText = (ls !== -1) ? typedText.substring(0, ls + 1) : "";
-                } else if (char === SUGGEST_KEY_CHAR) {
-                    if(!isFromMouseClick && inputMethod === "blink") playSound("key_action"); 
+                    typedTextArea.textContent = typedText;
+                    if (isSettingUpEmail && inputMethod === "blink") resetToRowScan();
+                    break;
+                case DELETE_KEY_CHAR:
+                    if(!isFromMouseClick) playSound("key_action");
+                    const ls = typedText.trimEnd().lastIndexOf(' ');
+                    typedText = (ls !== -1) ? typedText.substring(0, ls + 1) : "";
+                    typedTextArea.textContent = typedText;
+                    if (isSettingUpEmail && inputMethod === "blink") resetToRowScan();
+                    break;
+                case SPACE_KEY_CHAR:
+                    if (!isSettingUpEmail) {
+                         if(!isFromMouseClick) playSound("key_action");
+                        const w = typedText.trim().split(/\s+/); if (w.length > 0 && w[w.length-1]) learnWord(w[w.length-1]);
+                        typedText += " ";
+                        typedTextArea.textContent = typedText;
+                    }
+                    break;
+                case SUGGEST_KEY_CHAR:
+                     if(!isFromMouseClick) playSound("key_action"); 
                     activeSuggestionListForScanning = [...currentSuggestionObjects];
                     activeSuggestionListForScanning.push({text: SUGGESTION_SKIP_TEXT, source: 'system'});
                     if (inputMethod === "blink") { 
                         currentScanMode = SCANNING_MODE_SUGGESTION; currentSuggestionIndex = 0;
                     }
                     statusText.textContent = "Status: Suggestion Scanning"; 
-                    postActionKeyboardResetNeeded = false; 
-                } else if (char === CANCEL_KEY_CHAR) { 
-                    if(!isFromMouseClick && inputMethod === "blink") playSound("key_action");
-                } else { // Regular character
-                    if(!isFromMouseClick && inputMethod === "blink") playSound("key_action");
+                    displaySuggestions(); 
+                    break;
+                default: // Regular character
+                     if(!isFromMouseClick) playSound("key_action");
                     typedText += char;
-                }
-                
-                typedTextArea.textContent = typedText;
-                if(wordToLearn && !isSettingUpEmail) learnWord(wordToLearn); 
-                if (!isFromMouseClick && ![SUGGEST_KEY_CHAR, MAIL_KEY_CHAR, SEARCH_KEY_CHAR, NUM_KEY_CHAR, PUNC_KEY_CHAR].includes(char)) {
-                     statusText.textContent = `Action: ${char}`; 
+                    typedTextArea.textContent = typedText;
+                    if (isSettingUpEmail && inputMethod === "blink") resetToRowScan();
+                    break;
+            }
+            
+            // Update suggestions if not in an action that handles it separately
+            if (!isSettingUpEmail || emailSetupPhase !== "confirm_send") {
+                if (![MAIL_KEY_CHAR, SEARCH_KEY_CHAR, SUGGEST_KEY_CHAR, EMAIL_NEXT_FIELD_KEY, EMAIL_CANCEL_SETUP_KEY, CANCEL_KEY_CHAR].includes(char)) {
+                    const prefix = typedText.match(/([^\s]+)$/)?.[0] || "";
+                    getCombinedSuggestions(prefix).then(suggestions => { currentSuggestionObjects = suggestions; displaySuggestions(); });
                 }
             }
 
-            // Update suggestions if applicable
-            if (postActionKeyboardResetNeeded || isSuggestion || specificResetType === "special_keyboard_return_to_main" || specificResetType === "special_keyboard_return_to_email" ) {
-                if (!isSettingUpEmail || (isSettingUpEmail && emailSetupPhase !== "confirm_send")) {
-                    if (![MAIL_KEY_CHAR, SEARCH_KEY_CHAR, SUGGEST_KEY_CHAR, CANCEL_KEY_CHAR, EMAIL_NEXT_FIELD_KEY, EMAIL_SEND_KEY, EMAIL_CANCEL_SETUP_KEY, NUM_KEY_CHAR, PUNC_KEY_CHAR].includes(char) || char === SPACE_KEY_CHAR || char === BACKSPACE_KEY_CHAR || char === DELETE_KEY_CHAR || isSuggestion) {
-                       const prefix = typedText.match(/([^\s]+)$/)?.[0] || "";
-                       getCombinedSuggestions(prefix).then(suggestions => { currentSuggestionObjects = suggestions; displaySuggestions(); });
-                    } else if (char === SEARCH_KEY_CHAR || char === MAIL_KEY_CHAR) { 
-                       currentSuggestionObjects = []; displaySuggestions();
-                    }
-                }
+            // Reset blink scan for normal typing actions
+            if (!isSettingUpEmail && inputMethod === "blink" && ![MAIL_KEY_CHAR, SEARCH_KEY_CHAR, SUGGEST_KEY_CHAR, NUM_KEY_CHAR, PUNC_KEY_CHAR].includes(char)) {
+                resetToRowScan();
             }
-
-            if (postActionKeyboardResetNeeded) {
-                if (inputMethod === "blink") { 
-                    if (specificResetType === "main" || specificResetType === "special_keyboard_return_to_main") {
-                        resetAndDisplayMainKeyboard(false); 
-                    } else if (specificResetType === "email_setup_continue" || specificResetType === "special_keyboard_return_to_email") {
-                        generateKeyboardLayout([EMAIL_NEXT_FIELD_KEY, BACKSPACE_KEY_CHAR, DELETE_KEY_CHAR, EMAIL_CANCEL_SETUP_KEY]);
-                        resetToRowScan();
-                    }
-                } else { // Click mode
-                    if (specificResetType === "main" || specificResetType === "special_keyboard_return_to_main") {
-                        resetAndDisplayMainKeyboard(false);
-                    } else if (specificResetType === "email_setup_continue" || specificResetType === "special_keyboard_return_to_email") {
-                        generateKeyboardLayout([EMAIL_NEXT_FIELD_KEY, BACKSPACE_KEY_CHAR, DELETE_KEY_CHAR, EMAIL_CANCEL_SETUP_KEY]);
-                        updateKeyAppearanceForInputMode(); 
-                        updateKeyboardHighlight(); 
-                    }
-                }
-            }
-            if (inputMethod === "click") updateKeyAppearanceForInputMode();
         }
 
 
@@ -1277,7 +1425,8 @@
                 }
             } else { 
                 if (isCalibrating) {
-                    loadingMessage.textContent = "Calibrating: No face detected.";
+                    loadingMessage.classList.add('loading');
+                    loadingText.textContent = "Calibrating: No face detected.";
                 }
                 eyeStatusText.textContent = "EAR: N/A (No face detected)";
                 eyeClosureFramesCount = 0;
@@ -1292,13 +1441,11 @@
                 }
                 else if (currentScanMode === SCANNING_MODE_SPECIAL_ROW) { 
                     if (isSettingUpEmail) {
-                        generateKeyboardLayout([EMAIL_NEXT_FIELD_KEY, BACKSPACE_KEY_CHAR, DELETE_KEY_CHAR, EMAIL_CANCEL_SETUP_KEY]);
+                        generateKeyboardLayout(EMAIL_SETUP_FINAL_ROW_CHARS);
                         currentScanMode = SCANNING_MODE_ROW; 
                         currentRowScanIndex = 0; currentKeyScanIndexInRow = 0; selectedRowIndex = -1;
                         statusText.textContent = "Status: Email Setup (Reacquire Face)";
-                        emailSetupInstructions.textContent = (emailSetupPhase === "enter_sender") ? // Should be enter_receiver now
-                            `Enter Sender's Gmail Username (before ${EMAIL_DOMAIN_SUFFIX}).` :
-                            `Enter Receiver's Gmail Username (before ${EMAIL_DOMAIN_SUFFIX}).`;
+                        emailSetupInstructions.textContent = `Enter Receiver's Gmail Username (before ${EMAIL_DOMAIN_SUFFIX}).`;
                         updateKeyboardHighlight();
                     } else {
                         resetAndDisplayMainKeyboard(false);
@@ -1329,12 +1476,17 @@
                             selectedRowIndex = currentRowScanIndex; originalSelectedRowForKeyScan = currentRowScanIndex;
                             currentScanMode = SCANNING_MODE_KEY; currentKeyScanIndexInRow = 0;
                             isOfferingKeyScanCancel = false; 
+                            isOfferingGenericCancelForEmailRow = false; // Reset this when a new row is selected
                             statusText.textContent = `Status: Key Scanning (Row ${selectedRowIndex + 1})`; playSound("row_select");
                         }
                          updateKeyboardHighlight(); canvasCtx.restore(); return; 
                     } else if (currentScanMode === SCANNING_MODE_KEY) {
                         if (selectedRowIndex !== -1 && keyboardRows[selectedRowIndex]?.[currentKeyScanIndexInRow]) {
-                            charToProcess = keyboardRows[selectedRowIndex][currentKeyScanIndexInRow].char;
+                            if(isOfferingGenericCancelForEmailRow) { 
+                                charToProcess = CANCEL_KEY_CHAR; 
+                            } else {
+                                charToProcess = keyboardRows[selectedRowIndex][currentKeyScanIndexInRow].char;
+                            }
                         } else { resetAndDisplayMainKeyboard(isSettingUpEmail); updateKeyboardHighlight(); canvasCtx.restore(); return; }
                     } else if (currentScanMode === SCANNING_MODE_SUGGESTION) {
                          if (activeSuggestionListForScanning?.[currentSuggestionIndex]) {
@@ -1358,22 +1510,58 @@
                     } else if (currentScanMode === SCANNING_MODE_ROW) {
                         currentRowScanIndex = (currentRowScanIndex + 1) % keyboardRows.length;
                         statusText.textContent = isSettingUpEmail ? "Status: Email Setup" : "Status: Row Scanning";
+                        isOfferingGenericCancelForEmailRow = false; 
+                        const cancelMailKeyElement = document.getElementById('key-email-' + EMAIL_CANCEL_SETUP_KEY)
+                        if(cancelMailKeyElement && cancelMailKeyElement.originalHTML) {
+                            cancelMailKeyElement.innerHTML = cancelMailKeyElement.originalHTML;
+                            delete cancelMailKeyElement.originalHTML;
+                        }
+
                     } else if (currentScanMode === SCANNING_MODE_KEY) {
-                        if (isOfferingKeyScanCancel) {
-                            isOfferingKeyScanCancel = false; selectedRowIndex = originalSelectedRowForKeyScan;
+                        if (isOfferingGenericCancelForEmailRow) { 
+                            const cancelMailKeyElement = keyboardRows[keyboardRows.length - 1].find(k => k.char === EMAIL_CANCEL_SETUP_KEY)?.element;
+                            if (cancelMailKeyElement && cancelMailKeyElement.originalHTML) {
+                                cancelMailKeyElement.innerHTML = cancelMailKeyElement.originalHTML;
+                                delete cancelMailKeyElement.originalHTML;
+                            }
+                            isOfferingGenericCancelForEmailRow = false;
+                            selectedRowIndex = originalSelectedRowForKeyScan;
+                            currentKeyScanIndexInRow = 0;
+                            statusText.textContent = `Status: Key Scanning (Row ${selectedRowIndex + 1})`;
+
+                        } else if (isOfferingKeyScanCancel) { 
+                            isOfferingKeyScanCancel = false; 
+                            selectedRowIndex = originalSelectedRowForKeyScan;
                             currentKeyScanIndexInRow = 0;
                             statusText.textContent = `Status: Key Scanning (Row ${selectedRowIndex + 1})`;
                         } else {
                             currentKeyScanIndexInRow++;
                             if (selectedRowIndex !== -1 && keyboardRows[selectedRowIndex] && currentKeyScanIndexInRow >= keyboardRows[selectedRowIndex].length) {
-                                isOfferingKeyScanCancel = true; originalSelectedRowForKeyScan = selectedRowIndex;
-                                selectedRowIndex = keyboardRows.length - 1; 
-                                const cancelKeyCharToFind = isSettingUpEmail ? EMAIL_CANCEL_SETUP_KEY : CANCEL_KEY_CHAR;
-                                const cancelKeyObj = keyboardRows[selectedRowIndex].find(key => key.char === cancelKeyCharToFind);
-                                currentKeyScanIndexInRow = cancelKeyObj ? keyboardRows[selectedRowIndex].indexOf(cancelKeyObj) : 0;
-                                statusText.textContent = "Status: Cancel Option?";
-                            } else if (selectedRowIndex == -1 || !keyboardRows[selectedRowIndex]) { resetAndDisplayMainKeyboard(isSettingUpEmail);
-                            } else { statusText.textContent = `Status: Key Scanning (Row ${selectedRowIndex + 1})`; }
+                                if (isSettingUpEmail) {
+                                    isOfferingGenericCancelForEmailRow = true;
+                                    originalSelectedRowForKeyScan = selectedRowIndex;
+                                    const emailKeyboardLastRow = keyboardRows[keyboardRows.length - 1];
+                                    const cancelMailKeyIndex = emailKeyboardLastRow.findIndex(k => k.char === EMAIL_CANCEL_SETUP_KEY);
+                                    if (cancelMailKeyIndex !== -1) {
+                                        const cancelMailKeyElement = emailKeyboardLastRow[cancelMailKeyIndex].element;
+                                        cancelMailKeyElement.originalHTML = cancelMailKeyElement.innerHTML;
+                                        cancelMailKeyElement.innerHTML = specialKeyIcons[CANCEL_KEY_CHAR];
+                                        selectedRowIndex = keyboardRows.length - 1;
+                                        currentKeyScanIndexInRow = cancelMailKeyIndex;
+                                        statusText.textContent = "Status: Cancel Row?";
+                                    }
+                                } else { 
+                                    isOfferingKeyScanCancel = true; originalSelectedRowForKeyScan = selectedRowIndex;
+                                    selectedRowIndex = keyboardRows.length - 1; 
+                                    const cancelKeyObj = keyboardRows[selectedRowIndex].find(key => key.char === CANCEL_KEY_CHAR);
+                                    currentKeyScanIndexInRow = cancelKeyObj ? keyboardRows[selectedRowIndex].indexOf(cancelKeyObj) : 0;
+                                    statusText.textContent = "Status: Cancel Option?";
+                                }
+                            } else if (selectedRowIndex == -1 || !keyboardRows[selectedRowIndex]) { 
+                                resetAndDisplayMainKeyboard(isSettingUpEmail);
+                            } else { 
+                                statusText.textContent = `Status: Key Scanning (Row ${selectedRowIndex + 1})`; 
+                            }
                         }
                     } else if (currentScanMode === SCANNING_MODE_SUGGESTION) {
                         if (activeSuggestionListForScanning?.length > 0) currentSuggestionIndex = (currentSuggestionIndex + 1) % activeSuggestionListForScanning.length;
@@ -1386,7 +1574,7 @@
                     lastTraversalTime = currentTime;
                 } else if (isTraversalPausedForSelectionConsideration && !statusText.textContent.includes("Evaluating")) {
                     statusText.textContent = "Status: Evaluating Blink...";
-                } else if (!isCalibrating && !isTraversalPausedForSelectionConsideration && !isOfferingKeyScanCancel &&
+                } else if (!isCalibrating && !isTraversalPausedForSelectionConsideration && !isOfferingKeyScanCancel && !isOfferingGenericCancelForEmailRow &&
                            !statusText.textContent.startsWith("Status: Initializing") &&
                            !statusText.textContent.startsWith("Action:") &&
                            !statusText.textContent.startsWith("Suggestion:") &&
@@ -1412,9 +1600,12 @@
             await loadCharMappings();
             await loadTFModel();
             initAudio();
-            startButton.disabled = true; startButton.textContent = "Loading...";
+            startButton.disabled = true;
+            startButtonText.textContent = "Loading...";
             switchInputModeButton.disabled = true; 
-            loadingMessage.textContent = "Initializing MediaPipe..."; loadingMessage.style.display = 'block';
+            loadingMessage.classList.add('loading');
+            loadingText.textContent = "Initializing MediaPipe...";
+            loadingMessage.style.display = 'flex';
             calibrationInstructions.style.display = 'none';
             emailSetupInstructions.textContent = "";
 
@@ -1444,7 +1635,9 @@
                 });
                 await camera.start();
                 isCameraActive = true; 
-                startButton.textContent = "Stop Camera"; 
+                startButtonText.textContent = "Stop Camera"; 
+                startIcon.style.display = 'none';
+                stopIcon.style.display = 'block';
                 startButton.disabled = false;
 
 
@@ -1456,14 +1649,15 @@
                     isCalibrating = true;
                     calibrationBlinksNeeded = 3; calibrationEarValues = []; calibrationState = "idle";
                     calibrationFramesLowCount = 0; calibrationFramesHighCount = 0; currentCalibrationBlinkMinEar = 1.0;
-                    loadingMessage.textContent = "Camera started. Calibrating...";
+                    loadingText.textContent = "Camera started. Calibrating...";
                     calibrationInstructions.textContent = "Please look at the camera and blink SLOWLY three times when your eyes feel normal.";
                     calibrationInstructions.style.display = 'block';
                     statusText.textContent = "Status: Calibrating";
                     switchInputModeButton.disabled = true; 
                 } else { 
                     isCalibrating = false;
-                    loadingMessage.textContent = "Camera started for Click Mode.";
+                    loadingMessage.classList.remove('loading');
+                    loadingText.textContent = "Camera started for Click Mode.";
                     statusText.textContent = "Status: Click Input Mode";
                     initialDelayPassed = true; 
                     resetAndDisplayMainKeyboard();
@@ -1473,9 +1667,13 @@
 
             } catch (err) {
                 console.error("Error during startApp:", err);
-                loadingMessage.textContent = `Error: ${err.message}. Check console & permissions.`;
+                loadingMessage.classList.remove('loading');
+                loadingText.textContent = `Error: ${err.message}. Check console & permissions.`;
                 statusText.textContent = "Status: Error"; modelStatusText.textContent = "Model: Error";
-                startButton.disabled = false; startButton.textContent = "Start Camera"; 
+                startButton.disabled = false; 
+                startButtonText.textContent = "Start Camera";
+                startIcon.style.display = 'block';
+                stopIcon.style.display = 'none';
                 switchInputModeButton.textContent = "Use Click Input";
                 switchInputModeButton.disabled = true;
                 isAutoStartPaused = false; 
@@ -1500,15 +1698,18 @@
             }
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height); 
 
-            startButton.textContent = "Start Camera";
+            startButtonText.textContent = "Start Camera";
+            startIcon.style.display = 'block';
+            stopIcon.style.display = 'none';
             startButton.disabled = false;
             switchInputModeButton.disabled = true; 
-            switchInputModeButton.textContent = (inputMethod === "blink") ? "Use Click Input" : "Use Blink Input"; 
+            switchButtonText.textContent = (inputMethod === "blink") ? "Use Click Input" : "Use Blink Input"; 
 
 
             statusText.textContent = "Status: Camera Off";
             eyeStatusText.textContent = "EAR: N/A";
-            loadingMessage.textContent = "Camera stopped.";
+            loadingMessage.classList.remove('loading');
+            loadingText.textContent = "Camera stopped.";
             calibrationInstructions.style.display = 'none';
             emailSetupInstructions.textContent = "";
             keyboardArea.innerHTML = ""; 
@@ -1530,8 +1731,8 @@
                 if (isAutoStartActive) { 
                     stopAutoStartTimer();
                     isAutoStartPaused = true;
-                    startButton.textContent = "Start Camera (Paused)";
-                    loadingMessage.textContent = "Auto-start paused. Click button to start manually.";
+                    startButtonText.textContent = "Start Camera";
+                    loadingText.textContent = "Auto-start paused. Click button to start manually.";
                 } else { 
                     isAutoStartPaused = false; 
                     startApp(); 
@@ -1543,7 +1744,15 @@
             if (!isCameraActive || isCalibrating) return; 
 
             inputMethod = (inputMethod === "blink") ? "click" : "blink"; 
-            switchInputModeButton.textContent = (inputMethod === "blink") ? "Use Click Input" : "Use Blink Input"; 
+            switchButtonText.textContent = (inputMethod === "blink") ? "Use Click Input" : "Use Blink Input"; 
+            
+            if (inputMethod === "blink") {
+                clickModeIcon.style.display = 'block';
+                blinkModeIcon.style.display = 'none';
+            } else {
+                clickModeIcon.style.display = 'none';
+                blinkModeIcon.style.display = 'block';
+            }
             
             updateKeyAppearanceForInputMode();
             updateKeyboardHighlight(); 
@@ -1561,7 +1770,7 @@
                     if (emailSetupPhase === 'confirm_send') {
                         displayEmailConfirmScreen();
                     } else {
-                         generateKeyboardLayout([EMAIL_NEXT_FIELD_KEY, BACKSPACE_KEY_CHAR, DELETE_KEY_CHAR, EMAIL_CANCEL_SETUP_KEY]);
+                         generateKeyboardLayout(EMAIL_SETUP_FINAL_ROW_CHARS);
                     }
                 } else if (activeSpecialKeyboardType) {
                     displaySpecialKeyboard(activeSpecialKeyboardType === 'number' ? NUMBERS_LAYOUT_CONFIG : PUNCTUATION_LAYOUT_CONFIG);
